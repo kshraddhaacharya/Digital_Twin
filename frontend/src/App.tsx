@@ -6,6 +6,7 @@ import { ForecastSection } from './components/ForecastSection';
 import { ScenarioSection } from './components/ScenarioSection';
 import { PatientDataSection } from './components/PatientDataSection';
 import { EvaluationSection } from './components/EvaluationSection';
+import { Web3Section } from './components/Web3Section';
 import { api } from './services/api';
 import { Patient, TwinState, Measurement, Forecast } from './types';
 
@@ -144,6 +145,14 @@ export function App() {
             twinState={twinState}
             twinHistory={twinHistory}
             onTwinUpdated={() => loadPatientData(selectedPatientId)}
+          />
+        )}
+
+        {activeTab === 'web3' && (
+          <Web3Section
+            patientId={selectedPatientId}
+            twinState={twinState}
+            twinHistory={twinHistory}
           />
         )}
 

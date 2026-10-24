@@ -91,16 +91,23 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           </p>
         </div>
 
-        {/* Current Twin State Status Badge */}
-        <div className="flex items-center space-x-4">
-          <div className="bg-twin-50 border border-twin-200 rounded-lg p-3 flex items-center space-x-3">
-            <Cpu className="w-6 h-6 text-twin-600" />
+        {/* Current Twin State Status Badge & Web3 Anchoring */}
+        <div className="flex items-center space-x-3">
+          <div
+            onClick={() => onNavigateTab('web3')}
+            className="cursor-pointer bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg p-3 flex items-center space-x-3 transition-colors"
+            title="Click to view On-Chain Attestation in Web3 tab"
+          >
+            <div className="bg-purple-600 text-white p-1.5 rounded-lg">
+              <Cpu className="w-5 h-5" />
+            </div>
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-twin-700">
-                Modeled Twin State
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purple-700 flex items-center space-x-1">
+                <span>Web3 Anchored</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               </div>
-              <div className="text-lg font-extrabold text-twin-900">
-                Version {twinState ? twinState.state_version : 'Uninitialized'}
+              <div className="text-base font-extrabold text-purple-950">
+                Block #{twinState?.on_chain_block_number ?? '1'} • v{twinState ? twinState.state_version : '1'}
               </div>
             </div>
           </div>

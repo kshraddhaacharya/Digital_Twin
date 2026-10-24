@@ -14,6 +14,7 @@ class Patient(Base):
     baseline_heart_rate = Column(Float, nullable=False, default=70.0)
     medical_notes = Column(Text, nullable=True)
     is_synthetic = Column(Boolean, nullable=False, default=True)
+    wallet_address = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships

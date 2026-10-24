@@ -24,6 +24,13 @@ class TwinState(Base):
     physiological_variability_index = Column(Float, nullable=True)
     vital_status = Column(String(32), nullable=False, default="normal")  # normal, elevated, tachycardia, bradycardia
     
+    # Web3 On-Chain Anchoring & IPFS Cryptographic Attestation
+    on_chain_tx_hash = Column(String(128), nullable=True)
+    on_chain_block_number = Column(Integer, nullable=True)
+    state_hash_sha256 = Column(String(64), nullable=True)
+    ipfs_cid = Column(String(128), nullable=True)
+    contract_address = Column(String(64), nullable=True)
+
     # State metadata
     data_freshness_seconds = Column(Float, nullable=False, default=0.0)
     is_active_version = Column(Boolean, nullable=False, default=True)

@@ -486,3 +486,79 @@ def test_api_json_batch_upload(client):
     assert body["success"] is True
     assert body["valid_inserted"] == 20
     assert body["twin_state_version"] == 1
+
+
+# =========================================================================
+# 6. Web3 Decentralized State Attestation & Access Control Tests
+# =========================================================================
+
+def test_web3_network_status(client):
+    """Verify Web3 node connection and smart contract registry deployment."""
+    res = client.get("/api/web3/status")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["is_connected"] is True
+    assert "0x" in body["contract_address"]
+    assert "0x" in body["active_wallet_address"]
+    assert body["latest_block_number"] >= 1
+
+
+def test_web3_on_chain_state_verification(client):
+    """
+    Verify on-chain cryptographic attestation:
+    1. Seed patient & initialize twin -> Anchors on-chain
+    2. Query on-chain verify -> Returns is_valid == True
+    3. Modify candidate features -> Returns is_valid == False (tamper-evident proof!)
+    """
+    res_init = client.post("/api/patients/synthetic", json={
+        "patient_id": "PT-WEB3-VERIFY",
+        "duration_hours": 12
+    })
+    assert res_init.status_code == 201
+
+    # Verify on-chain parity
+    res_ver = client.get("/api/web3/patients/PT-WEB3-VERIFY/twin/1/verify")
+    assert res_ver.status_code == 200
+    ver_body = res_ver.json()
+    assert ver_body["is_valid"] is True
+    assert ver_body["on_chain_root"] == ver_body["candidate_hash"]
+    assert ver_body["ipfs_cid"].startswith("bafybeih")
+    assert ver_body["block_number"] >= 1
+
+
+def test_web3_sovereign_consent_grant_and_revoke(client):
+    """Verify patient sovereign consent: grant and revoke researcher access on-chain."""
+    client.post("/api/patients/synthetic", json={"patient_id": "PT-WEB3-ACCESS"})
+
+    researcher_addr = "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+
+    # Initially researcher should not have access
+    res_check1 = client.get("/api/web3/patients/PT-WEB3-ACCESS/access/check", params={"user_address": researcher_addr})
+    assert res_check1.status_code == 200
+    assert res_check1.json()["has_access"] is False
+
+    # Grant access on-chain
+    res_grant = client.post("/api/web3/patients/PT-WEB3-ACCESS/access/grant", json={
+        "researcher_address": researcher_addr,
+        "duration_seconds": 3600
+    })
+    assert res_grant.status_code == 200
+    assert res_grant.json()["success"] is True
+    assert "tx_hash" in res_grant.json()
+
+    # Verify access is now active
+    res_check2 = client.get("/api/web3/patients/PT-WEB3-ACCESS/access/check", params={"user_address": researcher_addr})
+    assert res_check2.status_code == 200
+    assert res_check2.json()["has_access"] is True
+
+    # Revoke access on-chain
+    res_revoke = client.post("/api/web3/patients/PT-WEB3-ACCESS/access/revoke", json={
+        "researcher_address": researcher_addr
+    })
+    assert res_revoke.status_code == 200
+    assert res_revoke.json()["success"] is True
+
+    # Verify access is now revoked
+    res_check3 = client.get("/api/web3/patients/PT-WEB3-ACCESS/access/check", params={"user_address": researcher_addr})
+    assert res_check3.status_code == 200
+    assert res_check3.json()["has_access"] is False

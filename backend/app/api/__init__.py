@@ -6,10 +6,12 @@ from backend.app.api.twin import router as twin_router
 from backend.app.api.forecast import router as forecast_router
 from backend.app.api.simulation import router as simulation_router
 from backend.app.api.evaluation import router as evaluation_router
+from backend.app.api.web3_routes import router as web3_router
 
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(health_router)
+api_router.include_router(web3_router)
 api_router.include_router(patients_router)
 api_router.include_router(measurements_router)
 api_router.include_router(twin_router)

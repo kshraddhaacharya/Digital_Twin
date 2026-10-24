@@ -145,4 +145,37 @@ export const api = {
     });
     return res.data;
   },
+
+  // Web3 & Decentralized Patient Sovereignty
+  getWeb3Status: async () => {
+    const res = await client.get('/web3/status');
+    return res.data;
+  },
+
+  verifyTwinStateOnChain: async (patientId: string, version: number) => {
+    const res = await client.get(`/web3/patients/${patientId}/twin/${version}/verify`);
+    return res.data;
+  },
+
+  grantAccessOnChain: async (patientId: string, researcherAddress: string, durationSeconds: number = 86400) => {
+    const res = await client.post(`/web3/patients/${patientId}/access/grant`, {
+      researcher_address: researcherAddress,
+      duration_seconds: durationSeconds
+    });
+    return res.data;
+  },
+
+  revokeAccessOnChain: async (patientId: string, researcherAddress: string) => {
+    const res = await client.post(`/web3/patients/${patientId}/access/revoke`, {
+      researcher_address: researcherAddress
+    });
+    return res.data;
+  },
+
+  checkAccessOnChain: async (patientId: string, userAddress: string) => {
+    const res = await client.get(`/web3/patients/${patientId}/access/check`, {
+      params: { user_address: userAddress }
+    });
+    return res.data;
+  },
 };

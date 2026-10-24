@@ -23,6 +23,13 @@ class TwinStateResponse(BaseModel):
     physiological_variability_index: Optional[float]
     vital_status: str
     
+    # Web3 On-Chain Attestation fields
+    on_chain_tx_hash: Optional[str] = None
+    on_chain_block_number: Optional[int] = None
+    state_hash_sha256: Optional[str] = None
+    ipfs_cid: Optional[str] = None
+    contract_address: Optional[str] = None
+
     # Metadata
     data_freshness_seconds: float
     is_active_version: bool

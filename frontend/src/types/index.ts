@@ -41,7 +41,35 @@ export interface TwinState {
   vital_status: 'normal' | 'elevated' | 'tachycardia' | 'bradycardia';
   data_freshness_seconds: number;
   is_active_version: boolean;
+  on_chain_tx_hash?: string;
+  on_chain_block_number?: number;
+  state_hash_sha256?: string;
+  ipfs_cid?: string;
+  contract_address?: string;
   created_at: string;
+}
+
+export interface Web3NetworkStatus {
+  is_connected: boolean;
+  chain_id: number;
+  network_name: string;
+  contract_address: string;
+  active_wallet_address: string;
+  wallet_balance_eth: number;
+  latest_block_number: number;
+}
+
+export interface Web3VerificationResult {
+  is_valid: boolean;
+  patient_id: string;
+  state_version: number;
+  candidate_hash: string;
+  on_chain_root: string;
+  ipfs_cid: string;
+  block_number: number;
+  on_chain_tx_hash?: string;
+  contract_address: string;
+  timestamp_observation?: string;
 }
 
 export interface ForecastPoint {

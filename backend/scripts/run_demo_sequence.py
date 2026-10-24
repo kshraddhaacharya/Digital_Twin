@@ -46,7 +46,7 @@ def main():
     print(f"[OK] Patient {demo_patient_id} created with {data1['measurements_loaded']} synthetic measurements.")
 
     # Step 2 & 3: Display current modeled state and initial state version
-    log_step(2, "Inspect active Digital Twin modeled state & initial state version")
+    log_step(2, "Inspect active Digital Twin modeled state & initial state version (Web3 Anchored)")
     res2 = client.get(f"/api/patients/{demo_patient_id}/twin")
     assert res2.status_code == 200, f"Failed: {res2.text}"
     twin_v1 = res2.json()
@@ -57,7 +57,17 @@ def main():
     print(f"     Trend Slope:         {twin_v1['trend_slope_per_hour']} bpm/hour")
     print(f"     Observation Time:    {twin_v1['timestamp_latest_observation']}")
     print(f"     Vital Status:        {twin_v1['vital_status']}")
+    print(f"     [Web3] Smart Contract:    {twin_v1.get('contract_address')}")
+    print(f"     [Web3] On-Chain TX Hash:  0x{twin_v1.get('on_chain_tx_hash')}")
+    print(f"     [Web3] Mined in Block:    #{twin_v1.get('on_chain_block_number')}")
+    print(f"     [Web3] IPFS Storage CID:  ipfs://{twin_v1.get('ipfs_cid')}")
     assert twin_v1['state_version'] == 1, "Expected Version 1 upon initialization"
+
+    # Verify on-chain cryptographic parity
+    res_web3_ver = client.get(f"/api/web3/patients/{demo_patient_id}/twin/1/verify")
+    assert res_web3_ver.status_code == 200
+    assert res_web3_ver.json()["is_valid"] is True
+    print(f"     [Web3] On-Chain Proof:    VERIFIED (is_valid == True, SHA-256 state root matches smart contract)")
 
     # Step 4: Generate a forecast using that state
     log_step(4, "Generate a forecast using Twin State Version 1")
@@ -117,6 +127,15 @@ def main():
     twin_v2 = res_twin_v2.json()
     print(f"     New Active Twin Version: {twin_v2['state_version']}")
     print(f"     New Latest HR: {twin_v2['latest_heart_rate']} bpm")
+    print(f"     [Web3] Version 2 On-Chain TX: 0x{twin_v2.get('on_chain_tx_hash')}")
+    print(f"     [Web3] Version 2 Mined Block: #{twin_v2.get('on_chain_block_number')}")
+    print(f"     [Web3] Version 2 IPFS CID:    ipfs://{twin_v2.get('ipfs_cid')}")
+
+    # Verify on-chain cryptographic parity for Version 2
+    res_web3_v2 = client.get(f"/api/web3/patients/{demo_patient_id}/twin/2/verify")
+    assert res_web3_v2.status_code == 200
+    assert res_web3_v2.json()["is_valid"] is True
+    print(f"     [Web3] Version 2 Cryptographic Proof: VERIFIED on smart contract!")
 
     # Step 10: Verify previous forecasts are marked stale
     log_step(10, "Verify previous forecast is marked STALE rather than silently overwritten")

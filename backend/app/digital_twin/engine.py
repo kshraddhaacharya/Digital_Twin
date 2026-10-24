@@ -7,6 +7,7 @@ from backend.app.models.measurement import Measurement
 from backend.app.models.patient import Patient
 from backend.app.models.twin_state import TwinState
 from backend.app.models.forecast import Forecast
+from backend.app.web3.service import Web3Service
 
 
 class DigitalTwinEngine:
@@ -129,11 +130,34 @@ class DigitalTwinEngine:
 
         features = cls.compute_state_features(hr_measurements, baseline_hr=patient.baseline_heart_rate)
 
+        # On-Chain Web3 State Attestation
+        web3_meta = {}
+        try:
+            w3_service = Web3Service.get_instance()
+            att = w3_service.attest_twin_state(
+                patient_id=patient_id,
+                version=1,
+                timestamp=features["timestamp_latest_observation"],
+                latest_hr=features["latest_heart_rate"],
+                rolling_mean=features["rolling_mean_60m"],
+                features=features
+            )
+            web3_meta = {
+                "on_chain_tx_hash": att["on_chain_tx_hash"],
+                "on_chain_block_number": att["on_chain_block_number"],
+                "state_hash_sha256": att["state_hash_sha256"],
+                "ipfs_cid": att["ipfs_cid"],
+                "contract_address": att["contract_address"],
+            }
+        except Exception as e:
+            print(f"[Web3] State attestation skipped: {e}")
+
         new_state = TwinState(
             patient_id=patient_id,
             state_version=1,
             is_active_version=True,
-            **features
+            **features,
+            **web3_meta
         )
 
         db.add(new_state)
@@ -175,6 +199,28 @@ class DigitalTwinEngine:
 
         features = cls.compute_state_features(hr_measurements, baseline_hr=patient.baseline_heart_rate)
 
+        # On-Chain Web3 State Attestation
+        web3_meta = {}
+        try:
+            w3_service = Web3Service.get_instance()
+            att = w3_service.attest_twin_state(
+                patient_id=patient_id,
+                version=next_version,
+                timestamp=features["timestamp_latest_observation"],
+                latest_hr=features["latest_heart_rate"],
+                rolling_mean=features["rolling_mean_60m"],
+                features=features
+            )
+            web3_meta = {
+                "on_chain_tx_hash": att["on_chain_tx_hash"],
+                "on_chain_block_number": att["on_chain_block_number"],
+                "state_hash_sha256": att["state_hash_sha256"],
+                "ipfs_cid": att["ipfs_cid"],
+                "contract_address": att["contract_address"],
+            }
+        except Exception as e:
+            print(f"[Web3] State attestation skipped: {e}")
+
         # Deactivate previous active states
         db.query(TwinState).filter(
             TwinState.patient_id == patient_id,
@@ -185,7 +231,8 @@ class DigitalTwinEngine:
             patient_id=patient_id,
             state_version=next_version,
             is_active_version=True,
-            **features
+            **features,
+            **web3_meta
         )
         db.add(new_state)
 
