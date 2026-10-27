@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, ShieldAlert, User, RefreshCw, Blocks, ShieldCheck } from 'lucide-react';
+import { Heart, RefreshCw, Sparkles, ShieldCheck } from 'lucide-react';
 import { Patient } from '../types';
 
 interface NavbarProps {
@@ -23,120 +23,103 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   loading,
 }) => {
+  // Only THREE primary, senior-friendly sections
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'twin', label: 'Digital Twin Engine' },
-    { id: 'web3', label: 'Web3 & Sovereignty' },
-    { id: 'forecast', label: 'Forecasting' },
-    { id: 'scenarios', label: 'Scenario Comparison' },
-    { id: 'data', label: 'Patient Data & Ingestion' },
-    { id: 'evaluation', label: 'Model Evaluation' },
+    { id: 'my-health', label: '1. My Health' },
+    { id: 'future-outlook', label: '2. Future Outlook' },
+    { id: 'record-history', label: '3. Record History' },
   ];
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-      {/* Educational prototype disclaimer top banner */}
-      <div className="bg-slate-900 text-slate-200 px-4 py-1.5 text-xs font-semibold flex items-center justify-between border-b border-slate-800">
-        <div className="flex items-center space-x-2">
-          <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0" />
-          <span>
-            HACKLOOP 2026: Web3 Decentralized Patient Digital Twin • Smart Contract Attested • Educational Prototype
+    <header className="bg-white border-b-2 border-slate-200 sticky top-0 z-30 shadow-sm">
+      {/* Calm, reassuring senior-friendly safety bar */}
+      <div className="bg-slate-900 text-white px-4 py-2 text-sm flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="flex items-center space-x-2 text-center sm:text-left">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          <span className="font-medium text-slate-200 text-sm">
+            Patient Digital Twin • Research & Educational Assistant
           </span>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="hidden md:inline bg-purple-900/60 text-purple-300 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border border-purple-500/40">
-            Smart Contract Verified
-          </span>
-          <span className="hidden md:inline bg-emerald-900/60 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border border-emerald-500/40">
-            IPFS Content-Addressed
+        <div className="flex items-center space-x-3 text-xs text-slate-300">
+          <span className="flex items-center space-x-1.5 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Blockchain Security: Active</span>
           </span>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo & title */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Logo & Simple Title */}
           <div className="flex items-center space-x-3">
-            <div className="bg-purple-600 text-white p-2 rounded-lg shadow-sm">
-              <Blocks className="w-6 h-6 animate-pulse" />
+            <div className="bg-purple-700 text-white p-2.5 rounded-xl shadow-sm flex items-center justify-center">
+              <Heart className="w-7 h-7 text-white fill-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900 leading-tight flex items-center space-x-2">
-                <span>Decentralized Patient Digital Twin</span>
-                <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-1.5 py-0.5 rounded border border-purple-300 uppercase">
-                  Web3 Core
-                </span>
+              <h1 className="text-2xl font-black text-slate-900 leading-tight">
+                My Health Twin
               </h1>
-              <p className="text-xs text-slate-500">
-                Hackloop 2026 • EVM Smart Contracts • IPFS Anchoring • Sovereign Consent
+              <p className="text-sm text-slate-600 font-medium">
+                Simple, secure health trend tracking
               </p>
             </div>
           </div>
 
-          {/* Web3 Wallet and Patient Selector */}
-          <div className="flex items-center space-x-3">
-            {/* Connected Web3 Identity Pill */}
-            <div
-              onClick={() => setActiveTab('web3')}
-              className="hidden lg:flex items-center space-x-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
-              title="Click to view Web3 Smart Contract & Sovereign Governance"
+          {/* Senior-Friendly Quick Action Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Quick Demo Button (Large & prominent) */}
+            <button
+              onClick={onLoadSynthetic}
+              disabled={loading}
+              className="bg-purple-700 hover:bg-purple-800 text-white font-bold text-base px-5 py-3 rounded-xl shadow-sm transition-all flex items-center space-x-2 min-h-[48px] active:scale-95"
             >
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-[11px] font-mono font-bold text-purple-900">
-                0x7E5F...5Bdf (EVM)
-              </span>
-            </div>
+              <Sparkles className="w-5 h-5 text-purple-200" />
+              <span>Try Demo Patient</span>
+            </button>
 
-            <div className="flex items-center space-x-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-              <User className="w-4 h-4 text-slate-500" />
-              <label htmlFor="patient-select" className="text-xs font-medium text-slate-600 hidden sm:inline">
+            {/* Patient selector */}
+            <div className="flex items-center space-x-2 bg-slate-100 px-3 py-2 rounded-xl border border-slate-300 min-h-[48px]">
+              <label htmlFor="patient-select" className="text-sm font-semibold text-slate-700">
                 Patient:
               </label>
               <select
                 id="patient-select"
                 value={selectedPatientId}
                 onChange={(e) => onSelectPatient(e.target.value)}
-                className="bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                className="bg-transparent text-base font-bold text-slate-900 focus:outline-none cursor-pointer"
               >
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} ({p.id})
+                    {p.name}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* Refresh Button */}
             <button
               onClick={onRefresh}
               disabled={loading}
-              title="Refresh Current Data"
-              className="p-2 text-slate-600 hover:text-twin-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+              title="Refresh readings"
+              className="p-3 text-slate-700 hover:text-purple-700 hover:bg-slate-100 rounded-xl transition-colors border border-slate-300 min-h-[48px] min-w-[48px] flex items-center justify-center"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-twin-600' : ''}`} />
-            </button>
-
-            <button
-              onClick={onLoadSynthetic}
-              disabled={loading}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition-all flex items-center space-x-1.5 disabled:opacity-50"
-            >
-              <span>Reload Demo</span>
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-purple-700' : ''}`} />
             </button>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <nav className="flex space-x-1 overflow-x-auto pb-1 scrollbar-none border-t border-slate-100 pt-1">
+        {/* 3 Primary Navigation Tabs (Large, High Contrast, Accessible) */}
+        <nav className="mt-4 grid grid-cols-3 gap-2 border-t-2 border-slate-100 pt-3">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                className={`py-3.5 px-3 text-base sm:text-lg font-bold rounded-xl transition-all text-center min-h-[48px] flex items-center justify-center ${
                   isActive
-                    ? 'bg-purple-50 text-purple-700 font-semibold border-b-2 border-purple-600'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-purple-700 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
                 {tab.label}

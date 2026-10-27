@@ -1,30 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
-import { OverviewSection } from './components/OverviewSection';
-import { DigitalTwinSection } from './components/DigitalTwinSection';
-import { ForecastSection } from './components/ForecastSection';
-import { ScenarioSection } from './components/ScenarioSection';
-import { PatientDataSection } from './components/PatientDataSection';
-import { EvaluationSection } from './components/EvaluationSection';
-import { Web3Section } from './components/Web3Section';
+import { MyHealthView } from './components/MyHealthView';
+import { FutureOutlookView } from './components/FutureOutlookView';
+import { RecordHistoryView } from './components/RecordHistoryView';
 import { api } from './services/api';
 import { Patient, TwinState, Measurement, Forecast } from './types';
 
 export function App() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('PT-DEMO-001');
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>('my-health');
   
   const [currentPatient, setCurrentPatient] = useState<Patient | null>(null);
   const [twinState, setTwinState] = useState<TwinState | null>(null);
-  const [twinHistory, setTwinHistory] = useState<TwinState[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [forecasts, setForecasts] = useState<Forecast[]>([]);
   
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load all patients on mount
   const loadPatients = async () => {
     try {
       const pts = await api.getPatients();
@@ -37,15 +31,13 @@ export function App() {
     }
   };
 
-  // Load patient specific data
   const loadPatientData = async (patientId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [ptData, tState, tHist, meas, fcs] = await Promise.allSettled([
+      const [ptData, tState, meas, fcs] = await Promise.allSettled([
         api.getPatient(patientId),
         api.getTwinState(patientId),
-        api.getTwinHistory(patientId),
         api.getMeasurements(patientId, 300),
         api.getForecasts(patientId, true),
       ]);
@@ -58,11 +50,6 @@ export function App() {
       } else {
         setTwinState(null);
       }
-      if (tHist.status === 'fulfilled') {
-        setTwinHistory(tHist.value);
-      } else {
-        setTwinHistory([]);
-      }
       if (meas.status === 'fulfilled') {
         setMeasurements(meas.value);
       } else {
@@ -74,7 +61,7 @@ export function App() {
         setForecasts([]);
       }
     } catch (err: any) {
-      setError('Failed to load patient telemetry or digital twin state.');
+      setError('Failed to load patient data.');
     } finally {
       setLoading(false);
     }
@@ -90,7 +77,6 @@ export function App() {
     }
   }, [selectedPatientId]);
 
-  // Load or regenerate synthetic patient demo
   const handleLoadSynthetic = async () => {
     setLoading(true);
     try {
@@ -103,15 +89,15 @@ export function App() {
       await loadPatients();
       setSelectedPatientId('PT-DEMO-001');
       await loadPatientData('PT-DEMO-001');
-      setActiveTab('overview');
+      setActiveTab('my-health');
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to seed synthetic patient.');
+      alert(err.response?.data?.detail || 'Failed to load demo patient.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans" style={{ fontSize: '18px' }}>
       <Navbar
         patients={patients}
         selectedPatientId={selectedPatientId}
@@ -123,81 +109,59 @@ export function App() {
         loading={loading}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-sm font-medium">
+          <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 text-red-900 rounded-2xl text-lg font-semibold shadow-sm">
             {error}
           </div>
         )}
 
-        {activeTab === 'overview' && (
-          <OverviewSection
+        {activeTab === 'my-health' && (
+          <MyHealthView
             patient={currentPatient}
             twinState={twinState}
             recentMeasurements={measurements}
             onNavigateTab={(tab) => setActiveTab(tab)}
-          />
-        )}
-
-        {activeTab === 'twin' && (
-          <DigitalTwinSection
-            patientId={selectedPatientId}
-            twinState={twinState}
-            twinHistory={twinHistory}
-            onTwinUpdated={() => loadPatientData(selectedPatientId)}
-          />
-        )}
-
-        {activeTab === 'web3' && (
-          <Web3Section
-            patientId={selectedPatientId}
-            twinState={twinState}
-            twinHistory={twinHistory}
-          />
-        )}
-
-        {activeTab === 'forecast' && (
-          <ForecastSection
-            patientId={selectedPatientId}
-            twinState={twinState}
-            measurements={measurements}
-            forecasts={forecasts}
-            onForecastGenerated={() => loadPatientData(selectedPatientId)}
-          />
-        )}
-
-        {activeTab === 'scenarios' && (
-          <ScenarioSection
-            patientId={selectedPatientId}
-            twinState={twinState}
-          />
-        )}
-
-        {activeTab === 'data' && (
-          <PatientDataSection
-            patientId={selectedPatientId}
-            measurements={measurements}
-            onDataChanged={() => loadPatientData(selectedPatientId)}
             onLoadSynthetic={handleLoadSynthetic}
           />
         )}
 
-        {activeTab === 'evaluation' && (
-          <EvaluationSection patientId={selectedPatientId} />
+        {activeTab === 'future-outlook' && (
+          <FutureOutlookView
+            patientId={selectedPatientId}
+            twinState={twinState}
+            measurements={measurements}
+            forecasts={forecasts}
+            onRefreshData={() => loadPatientData(selectedPatientId)}
+          />
+        )}
+
+        {activeTab === 'record-history' && (
+          <RecordHistoryView
+            patientId={selectedPatientId}
+            measurements={measurements}
+            twinState={twinState}
+            onDataChanged={() => loadPatientData(selectedPatientId)}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+          />
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500">
-        <p>
-          <strong>Hackloop 2026</strong> • Digital Twin of a Patient Prototype • Built with FastAPI, SQLAlchemy, React, Vite & Tailwind CSS.
-        </p>
-        <p className="mt-1 text-[11px] text-slate-400">
-          This system is a research and educational prototype. It does not replace clinicians, diagnose diseases, or prescribe medication.
-        </p>
+      {/* Simplified, reassuring footer */}
+      <footer className="bg-white border-t border-slate-200 py-6 mt-12 text-center text-slate-600 text-sm">
+        <div className="max-w-4xl mx-auto px-4 space-y-2">
+          <p className="font-semibold text-slate-800">
+            HackLoop 2026: Web3-Powered Patient Digital Twin
+          </p>
+          <p className="text-xs text-slate-500">
+            For research & educational purposes only. Not intended for direct medical diagnosis or clinical treatment.
+            Cryptographic attestations secured by Ethereum Smart Contracts.
+          </p>
+        </div>
       </footer>
     </div>
   );
 }
 
 export default App;
+
