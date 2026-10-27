@@ -8,9 +8,16 @@ from backend.app.api.simulation import router as simulation_router
 from backend.app.api.evaluation import router as evaluation_router
 from backend.app.api.web3_routes import router as web3_router
 
+from backend.app.api.auth import router as auth_router
+from backend.app.api.reports import router as reports_router
+from backend.app.api.videos import router as videos_router
+from backend.app.api.disease_tracker import router as disease_tracker_router
+from backend.app.api.cycle import router as cycle_router
+
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(health_router)
+api_router.include_router(auth_router)
 api_router.include_router(web3_router)
 api_router.include_router(patients_router)
 api_router.include_router(measurements_router)
@@ -18,5 +25,9 @@ api_router.include_router(twin_router)
 api_router.include_router(forecast_router)
 api_router.include_router(simulation_router)
 api_router.include_router(evaluation_router)
+api_router.include_router(reports_router)
+api_router.include_router(videos_router)
+api_router.include_router(disease_tracker_router)
+api_router.include_router(cycle_router)
 
 __all__ = ["api_router"]

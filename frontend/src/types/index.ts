@@ -1,3 +1,28 @@
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  patient_id: string;
+  age?: number;
+  date_of_birth?: string;
+  gender?: string;
+  height?: number; // cm
+  body_weight?: number; // kg
+  existing_conditions?: string;
+  allergies?: string;
+  medications?: string;
+  emergency_contact?: string;
+  profile_photo?: string;
+  health_notes?: string;
+  created_at: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -145,5 +170,133 @@ export interface ModelEvaluation {
   mae_improvement_pct: number;
   is_synthetic_data: boolean;
   disclaimer: string;
+  created_at: string;
+}
+
+export interface Biomarker {
+  name: string;
+  key: string;
+  value: string | number;
+  unit: string;
+  reference_range: string;
+  status: 'normal' | 'elevated' | 'low';
+}
+
+export interface SearchMatch {
+  line_number: number;
+  matched_line: string;
+  snippet: string;
+}
+
+export interface MedicalReport {
+  id: number;
+  title: string;
+  report_date: string;
+  file_name: string;
+  file_type: string;
+  file_size_bytes: number;
+  description?: string;
+  extracted_text?: string;
+  biomarkers: Biomarker[];
+  search_matches?: {
+    query: string;
+    matches_found: number;
+    snippets: SearchMatch[];
+  };
+  created_at: string;
+}
+
+export interface UserVideo {
+  id: number;
+  title: string;
+  video_date: string;
+  file_name: string;
+  file_type: string;
+  file_size_bytes: number;
+  description?: string;
+  stream_url: string;
+  created_at: string;
+}
+
+export interface HealthCondition {
+  id: number;
+  condition_name: string;
+  diagnosed_date?: string;
+  severity: string;
+  status: string;
+  notes?: string;
+  total_logs?: number;
+  created_at: string;
+}
+
+export interface ConditionLog {
+  id: number;
+  condition_id?: number;
+  condition_name?: string;
+  log_date: string;
+  metric_name: string;
+  metric_value: number;
+  metric_unit: string;
+  symptoms?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface DiseaseAnalytics {
+  cardiovascular: {
+    status: string;
+    risk_level: string;
+    latest_heart_rate_bpm: number;
+    trend_slope_bpm_per_hr: number;
+  };
+  stress_fatigue: {
+    score_0_to_100: number;
+    status: string;
+    physiological_variability: number;
+  };
+  body_mass_index: {
+    bmi?: number;
+    category?: string;
+    height_cm?: number;
+    body_weight_kg?: number;
+  };
+  tracking_summary: {
+    monitored_conditions_count: number;
+    total_timeline_logs: number;
+  };
+  disclaimer: string;
+}
+
+export interface CycleSummary {
+  has_data: boolean;
+  message?: string;
+  last_period_start?: string;
+  cycle_length_days?: number;
+  period_length_days?: number;
+  current_cycle_day?: number;
+  current_phase?: string;
+  phase_description?: string;
+  days_until_next_period?: number;
+  predicted_next_period?: string;
+  fertile_window?: {
+    start: string;
+    end: string;
+    is_in_fertile_window: boolean;
+  };
+  physiological_correlation?: {
+    current_twin_heart_rate_bpm: number;
+    expected_phase_shift: string;
+  };
+}
+
+export interface CycleLog {
+  id: number;
+  start_date: string;
+  end_date?: string;
+  cycle_length_days: number;
+  period_length_days: number;
+  flow_intensity: string;
+  symptoms?: string;
+  notes?: string;
   created_at: string;
 }
