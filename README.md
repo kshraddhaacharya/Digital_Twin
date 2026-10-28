@@ -204,3 +204,4 @@ npm run build --prefix frontend
 ## 8. License & Attribution
 
 Developed for **HackLoop 2026**. Built with privacy-first digital twin modeling and EVM cryptographic anchoring. For educational and research purposes only.
+# Digital_Twin
