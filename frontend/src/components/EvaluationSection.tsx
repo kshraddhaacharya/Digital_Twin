@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ModelEvaluation } from '../types';
 import { api } from '../services/api';
+import { formatIST } from '../utils/dateUtils';
 
 interface EvaluationSectionProps {
   patientId: string;
@@ -145,8 +146,8 @@ export const EvaluationSection: React.FC<EvaluationSectionProps> = ({ patientId 
               Evaluation Configuration & Time Horizons
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Test partition period: {evaluation?.evaluation_period_start ? new Date(evaluation.evaluation_period_start).toLocaleString() : 'N/A'} to{' '}
-              {evaluation?.evaluation_period_end ? new Date(evaluation.evaluation_period_end).toLocaleString() : 'N/A'}
+              Test partition period: {evaluation?.evaluation_period_start ? formatIST(evaluation.evaluation_period_start) : 'N/A'} to{' '}
+              {evaluation?.evaluation_period_end ? formatIST(evaluation.evaluation_period_end) : 'N/A'}
             </p>
           </div>
 

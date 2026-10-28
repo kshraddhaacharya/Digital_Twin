@@ -8,26 +8,27 @@ from sqlalchemy.orm import Session
 from backend.app.models.measurement import Measurement
 from backend.app.models.twin_state import TwinState
 from backend.app.models.forecast import Forecast
-from backend.app.schemas.forecast import ForecastPoint
+from backend.app.utils.datetime_utils import to_utc_iso
 
 
 class ForecastingEngine:
     """
-    Forecasting Engine providing short-term physiological forecasts
-    using both Baseline Persistence and Autoregressive Trend Extrapolation.
+    Physiological Forecasting Engine providing short-term, transparent projections
+    rooted in the patient's active digital twin state.
     """
 
     @staticmethod
     def generate_forecast(
         patient_id: str,
         db: Session,
-        horizon_minutes: int = 360,
+        horizon_minutes: int = 120,
         step_minutes: int = 15,
         model_type: str = "autoregressive_trend"
     ) -> Forecast:
         """
-        Generates a short-term forecast rooted in the active digital twin state.
-        Associates the output with the exact twin state version.
+        Generates a forward-looking physiological forecast rooted in the active twin state.
+        Associates output with the exact twin state version, documented assumptions,
+        data quality warnings, and statistical prediction intervals.
         """
         # 1. Fetch active twin state
         active_state = db.query(TwinState).filter(
@@ -47,12 +48,34 @@ class ForecastingEngine:
         if len(measurements) < 6:
             raise ValueError(
                 f"Insufficient historical data for forecasting: Found {len(measurements)} heart rate observations, "
-                f"but a minimum of 6 observations is required."
+                f"but a minimum of 6 observations is required for statistically defensible forecasting."
             )
 
         quality_warnings: List[str] = []
+
+        # Enforce realistic short-term horizon bound
+        if horizon_minutes > 180:
+            quality_warnings.append(
+                f"Requested horizon of {horizon_minutes} minutes exceeds optimal short-term forecast window (<= 180 min). "
+                f"Autonomic uncertainty increases substantially over longer horizons."
+            )
+
+        # Check data freshness
+        latest_m = measurements[-1]
+        ts_latest = latest_m.timestamp.replace(tzinfo=timezone.utc) if latest_m.timestamp.tzinfo is None else latest_m.timestamp
+        now_utc = datetime.now(timezone.utc)
+        age_hours = (now_utc - ts_latest).total_seconds() / 3600.0
+
+        if age_hours > 48.0:
+            quality_warnings.append(
+                f"Data freshness alert: The most recent observation is {age_hours:.1f} hours old. "
+                f"Projections assume an uninterrupted baseline without intervening physiological changes."
+            )
+
         if len(measurements) < 16:
-            quality_warnings.append("Limited historical observations (<16 points). Uncertainty intervals may be wider than usual.")
+            quality_warnings.append(
+                "Limited sample size (< 16 historical observations). Prediction intervals are wider to reflect statistical uncertainty."
+            )
 
         # Check for irregular sampling intervals
         timestamps = [
@@ -64,15 +87,17 @@ class ForecastingEngine:
             for i in range(1, len(timestamps))
         ]
         median_interval = float(np.median(diffs))
-        if max(diffs) > (median_interval * 3.0):
-            quality_warnings.append("Gaps detected in measurement stream; interpolation applied during feature engineering.")
+        if median_interval > 0 and max(diffs) > (median_interval * 3.5):
+            quality_warnings.append(
+                f"Irregular observation intervals detected (max gap: {max(diffs):.0f} min vs median {median_interval:.0f} min)."
+            )
 
         # 3. Model execution
         last_obs_ts = timestamps[-1]
-        last_val = float(measurements[-1].value)
+        last_val = float(latest_m.value)
         values = np.array([float(m.value) for m in measurements])
 
-        num_steps = max(1, horizon_minutes // step_minutes)
+        num_steps = max(1, min(24, horizon_minutes // step_minutes))
         future_timestamps = [last_obs_ts + timedelta(minutes=(i + 1) * step_minutes) for i in range(num_steps)]
 
         forecast_points: List[Dict[str, Any]] = []
@@ -81,28 +106,24 @@ class ForecastingEngine:
             model_name = "BaselinePersistenceModel"
             model_version = "1.0.0"
 
-            # Baseline holds last observed value forward with error based on sample std dev
-            sample_std = float(np.std(values, ddof=1)) if len(values) > 1 else 2.5
+            # Baseline holds last observed value forward with standard error derived from sample dispersion
+            sample_std = float(np.std(values, ddof=1)) if len(values) > 1 else 3.0
             for i, fut_ts in enumerate(future_timestamps):
                 step_idx = i + 1
-                # Error growth: se(h) = std * sqrt(h)
                 se = sample_std * math.sqrt(1.0 + 0.08 * step_idx)
                 forecast_points.append({
-                    "timestamp": fut_ts.isoformat(),
+                    "timestamp": to_utc_iso(fut_ts),
                     "predicted_value": round(last_val, 2),
                     "lower_bound_95": round(max(35.0, last_val - 1.96 * se), 2),
-                    "upper_bound_95": round(min(220.0, last_val + 1.96 * se), 2),
+                    "upper_bound_95": round(min(180.0, last_val + 1.96 * se), 2),
                     "lower_bound_80": round(max(35.0, last_val - 1.28 * se), 2),
-                    "upper_bound_80": round(min(220.0, last_val + 1.28 * se), 2),
+                    "upper_bound_80": round(min(180.0, last_val + 1.28 * se), 2),
                 })
-
         else:
-            # Autoregressive Trend Model with Diurnal / Circadian harmonics + Ridge regression
+            # Autoregressive Trend Model with Diurnal / Circadian harmonics + L2 Ridge Regularization
             model_name = "AutoregressiveTrendModel"
             model_version = "1.2.0"
 
-            # Construct features for historical series
-            # Features: [elapsed_hours, sin_diurnal, cos_diurnal, lag_1, lag_2]
             t0 = timestamps[0]
             elapsed_hours = np.array([(ts - t0).total_seconds() / 3600.0 for ts in timestamps])
 
@@ -130,11 +151,11 @@ class ForecastingEngine:
             ridge = Ridge(alpha=1.0)
             ridge.fit(X_arr, y_arr)
 
-            # In-sample residual variance for prediction interval computation
+            # In-sample residual variance
             residuals = y_arr - ridge.predict(X_arr)
-            residual_std = float(np.std(residuals, ddof=1)) if len(residuals) > 2 else 2.0
+            residual_std = float(np.std(residuals, ddof=1)) if len(residuals) > 2 else 2.5
 
-            # Iterative multi-step projection into future
+            # Recursive autoregressive projection
             current_lags = [values[-1], values[-2]]
             for i, fut_ts in enumerate(future_timestamps):
                 step_idx = i + 1
@@ -146,25 +167,24 @@ class ForecastingEngine:
                 fut_feats = np.array([[fut_elapsed, fut_sin, fut_cos, current_lags[0], current_lags[1]]])
                 pred_val = float(ridge.predict(fut_feats)[0])
                 
-                # Physiological boundary clamping
-                pred_val = max(40.0, min(180.0, pred_val))
+                # Documented physiological clamping for resting/normal cardiac ranges [35, 180] bpm
+                pred_val = max(35.0, min(180.0, pred_val))
 
-                # Update autoregressive memory
                 current_lags = [pred_val, current_lags[0]]
 
-                # Standard error increases monotonically with horizon steps
-                se = residual_std * math.sqrt(1.0 + 0.05 * step_idx)
+                # Standard error expands monotonically with forecast steps
+                se = residual_std * math.sqrt(1.0 + 0.08 * step_idx)
 
                 forecast_points.append({
-                    "timestamp": fut_ts.isoformat(),
+                    "timestamp": to_utc_iso(fut_ts),
                     "predicted_value": round(pred_val, 2),
                     "lower_bound_95": round(max(35.0, pred_val - 1.96 * se), 2),
-                    "upper_bound_95": round(min(220.0, pred_val + 1.96 * se), 2),
+                    "upper_bound_95": round(min(180.0, pred_val + 1.96 * se), 2),
                     "lower_bound_80": round(max(35.0, pred_val - 1.28 * se), 2),
-                    "upper_bound_80": round(min(220.0, pred_val + 1.28 * se), 2),
+                    "upper_bound_80": round(min(180.0, pred_val + 1.28 * se), 2),
                 })
 
-        # 4. Save to database
+        # 4. Save forecast record
         forecast_record = Forecast(
             patient_id=patient_id,
             twin_state_version=active_state.state_version,
@@ -180,6 +200,7 @@ class ForecastingEngine:
         )
 
         db.add(forecast_record)
+        active_state.latest_forecast_time = datetime.now(timezone.utc)
         db.commit()
         db.refresh(forecast_record)
 

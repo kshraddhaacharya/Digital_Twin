@@ -8,6 +8,8 @@ from backend.app.models.user import User
 from backend.app.models.disease_tracker import HealthCondition, ConditionLog
 from backend.app.models.twin_state import TwinState
 from backend.app.services.auth import get_current_user
+from backend.app.services.clinical_metrics import calculate_bmi
+from backend.app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/disease-tracker", tags=["Disease Tracker & Health Timeline"])
 
@@ -58,7 +60,7 @@ def create_condition(
         "severity": condition.severity,
         "status": condition.status,
         "notes": condition.notes,
-        "created_at": condition.created_at.isoformat()
+        "created_at": to_utc_iso(condition.created_at)
     }
 
 
@@ -81,7 +83,7 @@ def list_conditions(
             "status": c.status,
             "notes": c.notes,
             "total_logs": len(c.logs),
-            "created_at": c.created_at.isoformat()
+            "created_at": to_utc_iso(c.created_at)
         }
         for c in conditions
     ]
@@ -137,7 +139,7 @@ def create_condition_log(
         "metric_unit": log_entry.metric_unit,
         "symptoms": log_entry.symptoms,
         "notes": log_entry.notes,
-        "created_at": log_entry.created_at.isoformat()
+        "created_at": to_utc_iso(log_entry.created_at)
     }
 
 
@@ -167,7 +169,7 @@ def list_condition_logs(
             "metric_unit": l.metric_unit,
             "symptoms": l.symptoms,
             "notes": l.notes,
-            "created_at": l.created_at.isoformat()
+            "created_at": to_utc_iso(l.created_at)
         }
         for l in logs
     ]
@@ -233,20 +235,8 @@ def get_disease_tracker_analytics(
     else:
         stress_status = "Elevated Physiological Strain"
 
-    # BMI calculation if height and weight exist
-    bmi = None
-    bmi_category = None
-    if current_user.height and current_user.body_weight:
-        h_m = current_user.height / 100.0
-        bmi = round(current_user.body_weight / (h_m * h_m), 1)
-        if bmi < 18.5:
-            bmi_category = "Underweight"
-        elif bmi < 25.0:
-            bmi_category = "Normal Weight"
-        elif bmi < 30.0:
-            bmi_category = "Overweight"
-        else:
-            bmi_category = "Obesity Range"
+    # BMI calculation via shared trusted clinical metrics module
+    bmi, bmi_category = calculate_bmi(current_user.height, current_user.body_weight)
 
     conditions_count = db.query(HealthCondition).filter(HealthCondition.user_id == current_user.id).count()
     logs_count = db.query(ConditionLog).filter(ConditionLog.user_id == current_user.id).count()

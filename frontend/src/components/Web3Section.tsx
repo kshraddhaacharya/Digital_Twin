@@ -185,9 +185,9 @@ export const Web3Section: React.FC<Web3SectionProps> = ({
             <span className="font-mono text-xs font-bold text-purple-800 bg-purple-50 px-2 py-1 rounded border border-purple-200 truncate max-w-[180px]">
               {networkStatus ? networkStatus.contract_address : 'Loading...'}
             </span>
-            {networkStatus && (
+            {networkStatus && networkStatus.contract_address && (
               <button
-                onClick={() => handleCopy(networkStatus.contract_address)}
+                onClick={() => handleCopy(networkStatus.contract_address!)}
                 title="Copy Contract Address"
                 className="text-slate-400 hover:text-purple-600 p-1"
               >
@@ -213,9 +213,9 @@ export const Web3Section: React.FC<Web3SectionProps> = ({
             <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2 py-1 rounded border border-slate-200 truncate max-w-[180px]">
               {networkStatus ? networkStatus.active_wallet_address : 'Loading...'}
             </span>
-            {networkStatus && (
+            {networkStatus && networkStatus.active_wallet_address && (
               <button
-                onClick={() => handleCopy(networkStatus.active_wallet_address)}
+                onClick={() => handleCopy(networkStatus.active_wallet_address!)}
                 title="Copy Wallet Address"
                 className="text-slate-400 hover:text-slate-700 p-1"
               >

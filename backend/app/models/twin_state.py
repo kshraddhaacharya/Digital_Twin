@@ -15,6 +15,7 @@ class TwinState(Base):
 
     # Latest observed values
     latest_heart_rate = Column(Float, nullable=False)
+    measurement_context = Column(String(32), nullable=False, default="resting")
 
     # Inferred physiological features (distinct from raw observations)
     rolling_mean_60m = Column(Float, nullable=True)
@@ -24,7 +25,14 @@ class TwinState(Base):
     physiological_variability_index = Column(Float, nullable=True)
     vital_status = Column(String(32), nullable=False, default="normal")  # normal, elevated, tachycardia, bradycardia
     
+    # Model & Provenance
+    model_version = Column(String(32), nullable=False, default="1.0.0")
+    data_quality_status = Column(String(64), nullable=False, default="good")  # good, irregular_intervals, stale_data, insufficient_history
+    latest_forecast_time = Column(DateTime, nullable=True)
+    previous_state_hash = Column(String(64), nullable=True)
+
     # Web3 On-Chain Anchoring & IPFS Cryptographic Attestation
+    attestation_status = Column(String(32), nullable=False, default="PENDING")  # VERIFIED, PENDING, FAILED, UNAVAILABLE, SIMULATED
     on_chain_tx_hash = Column(String(128), nullable=True)
     on_chain_block_number = Column(Integer, nullable=True)
     state_hash_sha256 = Column(String(64), nullable=True)

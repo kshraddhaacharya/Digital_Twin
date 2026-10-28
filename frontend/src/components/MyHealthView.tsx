@@ -13,6 +13,7 @@ import {
   Info
 } from 'lucide-react';
 import { Patient, TwinState, Measurement } from '../types';
+import { formatFriendlyIST, formatIST } from '../utils/dateUtils';
 
 interface MyHealthViewProps {
   patient: Patient | null;
@@ -48,13 +49,9 @@ export const MyHealthView: React.FC<MyHealthViewProps> = ({
     );
   }
 
-  // Format time in plain English (e.g. "Today at 2:30 PM")
+  // Format time in Indian Standard Time (IST)
   const formatFriendlyTime = (isoString?: string) => {
-    if (!isoString) return 'Recent';
-    const date = new Date(isoString);
-    const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const isToday = new Date().toDateString() === date.toDateString();
-    return isToday ? `Today at ${timeStr}` : `${date.toLocaleDateString()} at ${timeStr}`;
+    return formatFriendlyIST(isoString);
   };
 
   // Plain-English trend explanation
@@ -98,9 +95,19 @@ export const MyHealthView: React.FC<MyHealthViewProps> = ({
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
               Hello, {patient.name}
             </h2>
-            <p className="text-lg text-slate-600 font-medium mt-1">
-              Age {patient.age} • Usual resting baseline: {patient.baseline_heart_rate} bpm
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-base text-slate-600 font-medium mt-1">
+              <span>Age {patient.age}</span>
+              <span>•</span>
+              <span>Resting baseline: {patient.baseline_heart_rate} bpm</span>
+              <span>•</span>
+              <span>Height: {patient.height_cm || 165} cm</span>
+              <span>•</span>
+              <span>Weight: {patient.weight_kg || 68} kg</span>
+              <span>•</span>
+              <span className="bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-full text-xs font-bold border border-slate-300">
+                BMI: {((patient.weight_kg || 68) / Math.pow((patient.height_cm || 165) / 100, 2)).toFixed(1)} (Screening metric)
+              </span>
+            </div>
           </div>
           <div className="self-start sm:self-auto">
             <span className="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold bg-purple-100 text-purple-900 border border-purple-200">
@@ -163,15 +170,15 @@ export const MyHealthView: React.FC<MyHealthViewProps> = ({
         {/* Primary Large Call-to-Action Buttons */}
         <div className="mt-8 pt-6 border-t-2 border-slate-100 flex flex-col sm:flex-row gap-4">
           <button
-            onClick={() => onNavigateTab('future-outlook')}
+            onClick={() => onNavigateTab('digital-twin')}
             className="flex-1 bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xl py-4 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center space-x-3 min-h-[56px] active:scale-95"
           >
-            <span>View Future Outlook</span>
+            <span>Run Digital Twin Simulation</span>
             <ArrowRight className="w-6 h-6" />
           </button>
 
           <button
-            onClick={() => onNavigateTab('record-history')}
+            onClick={() => onNavigateTab('records')}
             className="bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-lg py-4 px-6 rounded-2xl border-2 border-slate-300 transition-all flex items-center justify-center space-x-2 min-h-[56px]"
           >
             <PlusCircle className="w-6 h-6 text-purple-700" />
@@ -187,10 +194,16 @@ export const MyHealthView: React.FC<MyHealthViewProps> = ({
             <ShieldCheck className="w-8 h-8 text-emerald-700" />
           </div>
           <div className="flex-1">
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-xl font-bold text-slate-900">
                 Health Record Integrity: Verified on Blockchain
               </h3>
+              <button
+                onClick={() => onNavigateTab('integrity')}
+                className="self-start text-xs font-bold bg-purple-50 text-purple-900 hover:bg-purple-100 border border-purple-300 px-3 py-1.5 rounded-xl transition flex items-center space-x-1"
+              >
+                <span>Full Integrity & Sovereign Consent Hub →</span>
+              </button>
             </div>
             <p className="text-base text-slate-700 font-medium mt-1 leading-relaxed">
               Every time your readings change, a tamper-proof cryptographic fingerprint is anchored to the Ethereum smart contract. Your medical history cannot be secretly altered.

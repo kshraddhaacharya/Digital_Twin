@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from backend.app.database.connection import get_db
 from backend.app.models.user import User
+from backend.app.models.patient import Patient
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "hackloop-2026-digital-twin-secure-jwt-key-9283748234")
 ALGORITHM = "HS256"
@@ -18,7 +19,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=Fals
 
 def hash_password(plain_password: str) -> str:
     """Hashes a password securely using bcrypt."""
-    # bcrypt max length is 72 bytes
     pwd_bytes = plain_password.encode('utf-8')[:72]
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
@@ -87,3 +87,42 @@ def get_optional_current_user(
         return db.query(User).filter(User.id == user_id, User.is_active == True).first()
     except JWTError:
         return None
+
+
+def verify_patient_authorization(
+    patient_id: str,
+    user: Optional[User],
+    db: Session
+) -> Patient:
+    """
+    Enforces server-side authorization:
+    - Real patient data is strictly isolated to the authenticated user owning that patient_id.
+    - Demo/synthetic patients are accessible for educational prototype exploration.
+    - Prevents cross-patient data access and returns the authorized Patient instance.
+    """
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient '{patient_id}' not found."
+        )
+
+    # Demo or synthetic patient can be viewed/simulated by demo workflows
+    if patient.is_synthetic or patient_id.startswith("PT-DEMO") or patient_id.startswith("PT-HACKLOOP"):
+        return patient
+
+    # Real patient record requires authenticated owner match
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to access personal patient health records.",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    if user.patient_id != patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not authorized to view or modify this patient's records."
+        )
+
+    return patient

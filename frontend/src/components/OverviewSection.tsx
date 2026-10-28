@@ -20,6 +20,7 @@ import {
   ReferenceArea
 } from 'recharts';
 import { Patient, TwinState, Measurement } from '../types';
+import { formatIST, formatISTTimeOnly } from '../utils/dateUtils';
 
 interface OverviewSectionProps {
   patient: Patient | null;
@@ -48,7 +49,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
     .slice(0, 32)
     .reverse()
     .map((m) => ({
-      time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatISTTimeOnly(m.timestamp, false),
       value: m.value,
     }));
 
@@ -224,7 +225,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             </div>
           </div>
           <div className="mt-3 text-[11px] text-slate-500 truncate" title={twinState?.timestamp_latest_observation}>
-            Obs: {twinState?.timestamp_latest_observation ? new Date(twinState.timestamp_latest_observation).toLocaleString() : 'N/A'}
+            Obs: {twinState?.timestamp_latest_observation ? formatIST(twinState.timestamp_latest_observation) : 'N/A'}
           </div>
         </div>
       </div>

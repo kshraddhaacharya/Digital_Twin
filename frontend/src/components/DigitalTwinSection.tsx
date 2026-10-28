@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { TwinState, Measurement } from '../types';
 import { api } from '../services/api';
+import { formatIST } from '../utils/dateUtils';
 
 interface DigitalTwinSectionProps {
   patientId: string;
@@ -156,7 +157,7 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
                   <span className="text-slate-400 font-medium">Observation Time</span>
                   <div className="font-semibold text-slate-800 mt-1 truncate">
                     {twinState?.timestamp_latest_observation
-                      ? new Date(twinState.timestamp_latest_observation).toLocaleTimeString()
+                      ? formatIST(twinState.timestamp_latest_observation)
                       : 'N/A'}
                   </div>
                 </div>
@@ -402,8 +403,8 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
                   <td className="px-4 py-3 text-slate-900 font-bold">{s.latest_heart_rate.toFixed(1)} bpm</td>
                   <td className="px-4 py-3 text-slate-600">{s.rolling_mean_60m ? `${s.rolling_mean_60m.toFixed(1)} bpm` : '--'}</td>
                   <td className="px-4 py-3 text-slate-600">{s.trend_slope_per_hour ? `${s.trend_slope_per_hour.toFixed(1)} bpm/hr` : '0.0'}</td>
-                  <td className="px-4 py-3 text-slate-500">{new Date(s.timestamp_latest_observation).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-slate-400">{new Date(s.created_at).toLocaleTimeString()}</td>
+                  <td className="px-4 py-3 text-slate-500">{formatIST(s.timestamp_latest_observation)}</td>
+                  <td className="px-4 py-3 text-slate-400">{formatIST(s.created_at)}</td>
                 </tr>
               ))}
               {twinHistory.length === 0 && (

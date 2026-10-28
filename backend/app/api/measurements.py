@@ -7,9 +7,12 @@ from backend.app.database.connection import get_db
 from backend.app.models.patient import Patient
 from backend.app.models.measurement import Measurement
 from backend.app.models.twin_state import TwinState
+from backend.app.models.user import User
 from backend.app.schemas.measurement import MeasurementCreate, MeasurementResponse, MeasurementBatchUploadResponse
 from backend.app.digital_twin.engine import DigitalTwinEngine
 from backend.app.services.ingestion import process_csv_upload, process_json_upload, process_pdf_report
+from backend.app.services.auth import get_optional_current_user, verify_patient_authorization
+from backend.app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/patients/{patient_id}", tags=["Measurements"])
 
@@ -19,12 +22,11 @@ def get_measurements(
     patient_id: str,
     measurement_type: Optional[str] = Query(None, description="Filter by type, e.g. 'heart_rate'"),
     limit: int = Query(200, ge=1, le=1000, description="Max observations to return"),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
-    """Fetches chronological measurements for a patient."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Patient '{patient_id}' not found.")
+    """Fetches chronological measurements for a patient with authorization checks."""
+    verify_patient_authorization(patient_id, current_user, db)
 
     query = db.query(Measurement).filter(Measurement.patient_id == patient_id)
     if measurement_type:
@@ -37,16 +39,15 @@ def get_measurements(
 def add_measurement(
     patient_id: str,
     payload: MeasurementCreate,
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Submits a single timestamped measurement.
-    Validates types and ranges, stores the observation, and automatically triggers
-    a Digital Twin state update with version increment.
+    Validates types, bounds, and context; prevents duplicates; saves transactionally;
+    and advances the Digital Twin state version, invalidating stale forecasts.
     """
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Patient '{patient_id}' not found.")
+    verify_patient_authorization(patient_id, current_user, db)
 
     # 1. Duplicate check: unique (patient_id, measurement_type, timestamp)
     meas_ts = payload.timestamp
@@ -87,6 +88,8 @@ def add_measurement(
         value=payload.value,
         unit=payload.unit,
         source=payload.source or "manual_entry",
+        context=payload.context or "resting",
+        data_quality="valid",
         is_late_arrival=is_late,
         created_at=datetime.now(timezone.utc)
     )
@@ -116,20 +119,26 @@ def add_measurement(
         "measurement": {
             "id": new_m.id,
             "patient_id": new_m.patient_id,
-            "timestamp": new_m.timestamp.isoformat(),
+            "timestamp": to_utc_iso(new_m.timestamp),
             "measurement_type": new_m.measurement_type,
             "value": new_m.value,
             "unit": new_m.unit,
             "source": new_m.source,
-            "is_late_arrival": new_m.is_late_arrival
+            "context": new_m.context,
+            "is_late_arrival": new_m.is_late_arrival,
+            "created_at": to_utc_iso(new_m.created_at)
         },
         "digital_twin_update": {
             "previous_version": (updated_state.state_version - 1) if updated_state.state_version > 1 else 1,
             "current_state_version": updated_state.state_version,
             "latest_heart_rate": updated_state.latest_heart_rate,
+            "measurement_context": updated_state.measurement_context,
             "rolling_mean_60m": updated_state.rolling_mean_60m,
             "trend_slope_per_hour": updated_state.trend_slope_per_hour,
             "vital_status": updated_state.vital_status,
+            "data_quality_status": updated_state.data_quality_status,
+            "attestation_status": updated_state.attestation_status,
+            "on_chain_tx_hash": updated_state.on_chain_tx_hash,
             "stale_forecasts_invalidated": stale_count
         }
     }
@@ -139,12 +148,11 @@ def add_measurement(
 async def upload_csv_measurements(
     patient_id: str,
     file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
-    """Uploads batch measurements from a CSV file."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Patient '{patient_id}' not found.")
+    """Uploads batch measurements from a CSV file with authorization checks."""
+    verify_patient_authorization(patient_id, current_user, db)
 
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file must have a .csv extension.")
@@ -154,18 +162,9 @@ async def upload_csv_measurements(
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=result.get("error"))
 
-    # Update or initialize digital twin
     twin_ver = None
     if result["valid_inserted"] > 0:
-        active = DigitalTwinEngine.get_active_twin_state(patient_id=patient_id, db=db)
-        if not active:
-            state = DigitalTwinEngine.initialize_twin(patient_id=patient_id, db=db)
-        else:
-            state, _ = DigitalTwinEngine.update_twin_with_measurement(
-                patient_id=patient_id,
-                measurement=None,
-                db=db
-            ) if False else (DigitalTwinEngine.initialize_twin(patient_id=patient_id, db=db), 0)
+        state = DigitalTwinEngine.initialize_twin(patient_id=patient_id, db=db)
         twin_ver = state.state_version
 
     return MeasurementBatchUploadResponse(
@@ -183,12 +182,11 @@ async def upload_csv_measurements(
 def upload_json_measurements(
     patient_id: str,
     payload: dict,
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
-    """Uploads batch measurements from a JSON payload."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Patient '{patient_id}' not found.")
+    """Uploads batch measurements from a JSON payload with authorization checks."""
+    verify_patient_authorization(patient_id, current_user, db)
 
     result = process_json_upload(payload=payload, patient_id=patient_id, db=db)
     if not result.get("success"):
@@ -214,12 +212,11 @@ def upload_json_measurements(
 async def upload_pdf_measurements(
     patient_id: str,
     file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
-    """Extracts timestamped telemetry measurements from a clinical PDF report."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Patient '{patient_id}' not found.")
+    """Extracts timestamped telemetry measurements from a clinical PDF report with authorization checks."""
+    verify_patient_authorization(patient_id, current_user, db)
 
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file must have a .pdf extension.")

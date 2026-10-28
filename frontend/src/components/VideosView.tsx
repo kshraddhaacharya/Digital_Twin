@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { UserVideo } from '../types';
 import { api } from '../services/api';
+import { formatISTDateOnly, formatIST } from '../utils/dateUtils';
 
 interface VideosViewProps {
   videos: UserVideo[];
@@ -205,7 +206,7 @@ export const VideosView: React.FC<VideosViewProps> = ({ videos, onVideosChanged 
                     <h3 className="font-bold text-base text-slate-900 leading-snug line-clamp-1">{vid.title}</h3>
                     <p className="text-xs text-slate-500 mt-0.5 flex items-center space-x-1">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>{vid.video_date} • {(vid.file_size_bytes / (1024 * 1024)).toFixed(1)} MB</span>
+                      <span>{formatISTDateOnly(vid.video_date)} • Uploaded: {formatIST(vid.created_at)} • {(vid.file_size_bytes / (1024 * 1024)).toFixed(1)} MB</span>
                     </p>
                   </div>
 
@@ -249,7 +250,7 @@ export const VideosView: React.FC<VideosViewProps> = ({ videos, onVideosChanged 
 
             <div>
               <h3 className="text-2xl font-black">{activeVideo.title}</h3>
-              <p className="text-xs text-slate-400">Recorded on {activeVideo.video_date}</p>
+              <p className="text-xs text-slate-400">Recorded on {formatISTDateOnly(activeVideo.video_date)} • Uploaded {formatIST(activeVideo.created_at)}</p>
             </div>
 
             <div className="w-full bg-black rounded-2xl overflow-hidden aspect-video flex items-center justify-center">

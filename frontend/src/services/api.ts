@@ -131,6 +131,7 @@ export const api = {
     value: number;
     unit: string;
     source?: string;
+    context?: string;
   }) => {
     const res = await client.post(`/patients/${patientId}/measurements`, data);
     return res.data;
@@ -244,12 +245,13 @@ export const api = {
   },
 
   // Medical Reports (Upload & Search Engine)
-  uploadReport: async (file: File, title: string, reportDate: string, description?: string) => {
+  uploadReport: async (file: File, title: string, reportDate: string, description?: string, patientId?: string) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', title);
     formData.append('report_date', reportDate);
     if (description) formData.append('description', description);
+    if (patientId) formData.append('patient_id', patientId);
 
     const res = await client.post('/reports/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -257,11 +259,12 @@ export const api = {
     return res.data;
   },
 
-  getReports: async (search?: string, startDate?: string, endDate?: string): Promise<MedicalReport[]> => {
+  getReports: async (search?: string, startDate?: string, endDate?: string, patientId?: string): Promise<MedicalReport[]> => {
     const params: any = {};
     if (search) params.search = search;
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
+    if (patientId) params.patient_id = patientId;
     const res = await client.get('/reports', { params });
     return res.data;
   },
@@ -280,6 +283,18 @@ export const api = {
 
   syncReportTwin: async (reportId: number) => {
     const res = await client.post(`/reports/${reportId}/sync-twin`);
+    return res.data;
+  },
+
+  confirmReportBiomarkers: async (reportId: number, data: {
+    key: string;
+    value: number;
+    unit?: string;
+    context?: string;
+    observation_timestamp?: string;
+    notes?: string;
+  }) => {
+    const res = await client.post(`/reports/${reportId}/confirm-biomarkers`, data);
     return res.data;
   },
 

@@ -12,18 +12,22 @@ import {
   ExternalLink,
   X,
   FileCheck,
-  Activity
+  Activity,
+  ChevronDown
 } from 'lucide-react';
 import { MedicalReport } from '../types';
 import { api } from '../services/api';
+import { formatISTDateOnly, formatIST } from '../utils/dateUtils';
 
 interface ReportsViewProps {
+  patientId: string;
   reports: MedicalReport[];
   onReportsChanged: () => void;
   onNavigateToTwin: () => void;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
+  patientId,
   reports,
   onReportsChanged,
   onNavigateToTwin,
@@ -34,10 +38,68 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [uploadDate, setUploadDate] = useState(new Date().toISOString().slice(0, 10));
   const [uploadDesc, setUploadDesc] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [latestUploadedReport, setLatestUploadedReport] = useState<MedicalReport | null>(null);
 
   const [activeReport, setActiveReport] = useState<MedicalReport | null>(null);
+  const [confirmModalReport, setConfirmModalReport] = useState<MedicalReport | null>(null);
+  const [confirmedItems, setConfirmedItems] = useState<Record<string, { key: string; value: number; unit?: string; selected: boolean }>>({});
+  const [confirmingBiomarkers, setConfirmingBiomarkers] = useState<boolean>(false);
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [bannerMsg, setBannerMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const openConfirmModal = (report: MedicalReport) => {
+    setConfirmModalReport(report);
+    const initial: Record<string, { key: string; value: number; unit?: string; selected: boolean }> = {};
+    (report.biomarkers || []).forEach((b) => {
+      initial[b.key] = {
+        key: b.key,
+        value: typeof b.value === 'number' ? b.value : parseFloat(String(b.value)) || 0,
+        unit: b.unit,
+        selected: true,
+      };
+    });
+    setConfirmedItems(initial);
+  };
+
+  const handleConfirmBiomarkers = async () => {
+    if (!confirmModalReport) return;
+    setConfirmingBiomarkers(true);
+    try {
+      const itemsToConfirm = Object.values(confirmedItems)
+        .filter((i) => i.selected)
+        .map((i) => ({ key: i.key, value: i.value, unit: i.unit }));
+
+      if (itemsToConfirm.length === 0) {
+        alert('Please select at least one extracted vital to confirm.');
+        setConfirmingBiomarkers(false);
+        return;
+      }
+
+      let confirmedCount = 0;
+      for (const item of itemsToConfirm) {
+        if (item.key === 'heart_rate') {
+          await api.confirmReportBiomarkers(confirmModalReport.id, {
+            key: item.key,
+            value: item.value,
+            unit: item.unit || 'bpm',
+            context: 'resting',
+          });
+          confirmedCount++;
+        }
+      }
+
+      setBannerMsg({
+        text: `✓ Successfully confirmed ${confirmedCount} clinical vital reading(s)! Digital twin updated and anchored on-chain.`,
+        type: 'success'
+      });
+      setConfirmModalReport(null);
+      onReportsChanged();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to confirm biomarkers.');
+    } finally {
+      setConfirmingBiomarkers(false);
+    }
+  };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +111,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     setUploading(true);
     setBannerMsg(null);
     try {
-      const res = await api.uploadReport(selectedFile, uploadTitle, uploadDate, uploadDesc);
+      const res = await api.uploadReport(selectedFile, uploadTitle, uploadDate, uploadDesc, patientId);
+      setLatestUploadedReport(res.report);
       setBannerMsg({
-        text: `Report "${res.report.title}" uploaded! Extracted ${res.report.biomarkers.length} clinical parameters.`,
+        text: `Report "${res.report.title}" uploaded & analyzed! Extracted ${res.report.biomarkers?.length || 0} clinical parameter(s).`,
         type: 'success'
       });
       setUploadTitle('');
@@ -205,13 +268,142 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <button
             type="submit"
             disabled={uploading}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-black text-lg px-8 py-3.5 rounded-2xl shadow-md transition flex items-center space-x-2 min-h-[48px]"
+            className="bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-lg px-8 py-3.5 rounded-2xl shadow-md transition flex items-center space-x-2 min-h-[48px] disabled:opacity-50"
           >
             <Upload className="w-5 h-5" />
-            <span>{uploading ? 'Extracting Text & Vitals...' : 'Upload & Analyze Document'}</span>
+            <span>{uploading ? 'Extracting Text & Clinical Parameters...' : 'Upload & Analyze Document'}</span>
           </button>
         </form>
       </div>
+
+      {/* RECENTLY PROCESSED REPORT SUMMARY CARD */}
+      {latestUploadedReport && (
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border-2 border-purple-400 shadow-md space-y-5 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-4">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="bg-purple-100 text-purple-900 font-bold text-xs px-3 py-1 rounded-full uppercase">
+                  Latest Processed Report
+                </span>
+                <span className="bg-emerald-100 text-emerald-900 font-bold text-xs px-3 py-1 rounded-full flex items-center space-x-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Processed & Saved</span>
+                </span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900">{latestUploadedReport.title}</h3>
+              <p className="text-xs text-slate-500 font-semibold">
+                Report Date: {formatISTDateOnly(latestUploadedReport.report_date)} • Uploaded: {formatIST(latestUploadedReport.created_at)} • Format: {latestUploadedReport.file_type?.toUpperCase()} ({(latestUploadedReport.file_size_bytes / 1024).toFixed(1)} KB) • Patient: {latestUploadedReport.patient_id || patientId}
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setLatestUploadedReport(null)}
+                className="text-slate-400 hover:text-slate-600 p-2 rounded-xl transition"
+                title="Dismiss"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Structured Clinical Summary Box */}
+          <div className="p-5 bg-purple-50/80 border-2 border-purple-200 rounded-2xl space-y-2">
+            <h4 className="text-sm font-bold text-purple-950 flex items-center space-x-2">
+              <Sparkles className="w-4 h-4 text-purple-700" />
+              <span>Report Clinical Summary</span>
+            </h4>
+            <p className="text-base text-slate-800 leading-relaxed font-medium">
+              {latestUploadedReport.summary || latestUploadedReport.description || 'Document uploaded and analyzed.'}
+            </p>
+          </div>
+
+          {/* Extracted Parameters Table / Cards */}
+          {latestUploadedReport.biomarkers && latestUploadedReport.biomarkers.length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                  Recognized Clinical Parameters ({latestUploadedReport.biomarkers.length}):
+                </h4>
+                <button
+                  onClick={() => openConfirmModal(latestUploadedReport)}
+                  className="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-sm transition flex items-center space-x-1.5"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Review & Confirm Vitals</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse bg-slate-50 rounded-2xl overflow-hidden border border-slate-200">
+                  <thead className="bg-slate-100 text-slate-700 font-extrabold text-xs uppercase border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3">Biomarker / Vital</th>
+                      <th className="px-4 py-3">Observed Value</th>
+                      <th className="px-4 py-3">Standard Reference Range</th>
+                      <th className="px-4 py-3">Clinical Status</th>
+                      <th className="px-4 py-3 text-right">Confirmation</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-semibold text-slate-900">
+                    {latestUploadedReport.biomarkers.map((b, idx) => (
+                      <tr key={idx} className="hover:bg-white transition-colors">
+                        <td className="px-4 py-3 font-bold text-slate-900">{b.name}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-base font-black text-purple-900">{b.value}</span>{' '}
+                          <span className="text-xs text-slate-600">{b.unit}</span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 font-mono text-xs">{b.reference_range}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
+                              b.status === 'normal'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-amber-100 text-amber-800 border border-amber-300'
+                            }`}
+                          >
+                            {b.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs text-slate-500">
+                          {b.requires_confirmation ? 'Awaiting Review' : 'Auto-detected'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : latestUploadedReport.is_scanned ? (
+            <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-950 flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h5 className="font-bold text-sm text-amber-900">Scanned Document Notice</h5>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Text extraction was unsuccessful because no digital text layer was found in this scanned or image-based file. Automated OCR is not configured. Please consult the document file directly or enter vitals manually in Vital Readings.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-600 text-sm">
+              Document parsed successfully. No standard cardiovascular or metabolic parameters matched configured vital patterns.
+            </div>
+          )}
+
+          {/* Real Extracted Text Preview */}
+          {latestUploadedReport.extracted_text && (
+            <details className="mt-3 group">
+              <summary className="cursor-pointer text-xs font-bold text-purple-700 hover:text-purple-900 flex items-center space-x-1 select-none">
+                <span>View Raw Extracted Document Text</span>
+                <ChevronDown className="w-4 h-4 transition group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 p-4 bg-slate-900 text-slate-100 rounded-2xl font-mono text-xs whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed border border-slate-700">
+                {latestUploadedReport.extracted_text}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
 
       {/* Search Engine & Report Library */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border-2 border-slate-200 shadow-sm space-y-6">
@@ -252,7 +444,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {filteredReports.map((report) => (
               <div
                 key={report.id}
-                className="p-5 rounded-2xl border-2 border-slate-200 bg-white hover:border-blue-300 transition shadow-sm space-y-3"
+                className="p-5 rounded-2xl border-2 border-slate-200 bg-white hover:border-purple-300 transition shadow-sm space-y-3"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="space-y-0.5">
@@ -261,9 +453,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       <span className="bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold px-2.5 py-0.5 rounded-full uppercase">
                         {report.file_type}
                       </span>
+                      {report.is_scanned && (
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                          Scanned
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 font-semibold">
-                      Date: {report.report_date} • File: {report.file_name} ({(report.file_size_bytes / 1024).toFixed(1)} KB)
+                      Date: {formatISTDateOnly(report.report_date)} • Uploaded: {formatIST(report.created_at)} • File: {report.file_name} ({(report.file_size_bytes / 1024).toFixed(1)} KB)
                     </p>
                   </div>
 
@@ -295,39 +492,59 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   </div>
                 </div>
 
-                {report.description && (
+                {/* Readable Summary */}
+                {report.summary ? (
+                  <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 text-xs text-slate-800 leading-relaxed font-medium">
+                    <span className="font-bold text-purple-950">Summary: </span>
+                    {report.summary}
+                  </div>
+                ) : report.description ? (
                   <p className="text-sm text-slate-600 italic">{report.description}</p>
-                )}
+                ) : null}
 
                 {/* Detected Biomarkers Row */}
                 {report.biomarkers && report.biomarkers.length > 0 && (
-                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Extracted Vitals:</span>
-                    {report.biomarkers.map((b, idx) => (
-                      <span
-                        key={idx}
-                        className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center space-x-1 ${
-                          b.status === 'normal'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
-                      >
-                        <span>{b.name}:</span>
-                        <span className="underline">{b.value} {b.unit}</span>
-                      </span>
-                    ))}
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase">Extracted Parameters:</span>
+                      {report.biomarkers.map((b, idx) => (
+                        <span
+                          key={idx}
+                          className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center space-x-1.5 ${
+                            b.status === 'normal'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                          }`}
+                        >
+                          <span>{b.name}:</span>
+                          <span className="underline font-black">{b.value} {b.unit}</span>
+                          <span className="text-[10px] text-slate-500">({b.reference_range})</span>
+                          <span className="capitalize text-[10px] bg-white/70 px-1.5 py-0.2 rounded font-extrabold">{b.status}</span>
+                        </span>
+                      ))}
+                    </div>
 
-                    {/* Sync to twin button if Heart Rate exists */}
-                    {report.biomarkers.some((b) => b.key === 'heart_rate') && (
+                    {/* Action buttons for extracted vitals */}
+                    <div className="flex items-center space-x-2 pt-1">
                       <button
-                        onClick={() => handleSyncToTwin(report.id)}
-                        disabled={syncingId === report.id}
-                        className="ml-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-sm transition flex items-center space-x-1"
+                        onClick={() => openConfirmModal(report)}
+                        className="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-sm transition flex items-center space-x-1"
                       >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>{syncingId === report.id ? 'Syncing...' : 'Sync Vital to Twin (Web3)'}</span>
+                        <FileCheck className="w-3.5 h-3.5" />
+                        <span>Review & Confirm Vitals</span>
                       </button>
-                    )}
+
+                      {report.biomarkers.some((b) => b.key === 'heart_rate') && (
+                        <button
+                          onClick={() => handleSyncToTwin(report.id)}
+                          disabled={syncingId === report.id}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-sm transition flex items-center space-x-1"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>{syncingId === report.id ? 'Syncing...' : 'Sync Vital to Twin (Web3)'}</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -350,7 +567,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <div className="space-y-1">
               <h3 className="text-2xl font-black text-slate-900">{activeReport.title}</h3>
               <p className="text-xs text-slate-500 font-medium">
-                Report Date: {activeReport.report_date} • Format: {activeReport.file_type.toUpperCase()}
+                Report Date: {formatISTDateOnly(activeReport.report_date)} • Uploaded: {formatIST(activeReport.created_at)} • Format: {activeReport.file_type.toUpperCase()}
               </p>
             </div>
 
@@ -384,6 +601,114 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-6 py-2.5 rounded-xl text-sm"
               >
                 Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BIOMARKER REVIEW & CONFIRM */}
+      {confirmModalReport && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto space-y-6">
+            <button
+              onClick={() => setConfirmModalReport(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 p-2"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <div className="space-y-1">
+              <div className="inline-flex items-center space-x-2 bg-purple-100 text-purple-900 px-3 py-1 rounded-full text-xs font-bold">
+                <FileCheck className="w-3.5 h-3.5" />
+                <span>Patient Review & Confirmation Protocol</span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900">
+                Confirm Extracted Vitals for Digital Twin
+              </h3>
+              <p className="text-sm text-slate-600 font-medium">
+                From report: <strong>{confirmModalReport.title}</strong> ({formatISTDateOnly(confirmModalReport.report_date)})
+              </p>
+            </div>
+
+            <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-2xl text-xs text-amber-900 leading-relaxed">
+              <strong>Clinical Safety Step:</strong> Review each extracted parameter before incorporating it into your physiological state. You can edit values or uncheck parameters if OCR or laboratory extraction was inaccurate.
+            </div>
+
+            {/* List of biomarkers to confirm */}
+            <div className="space-y-3">
+              {confirmModalReport.biomarkers.map((b) => {
+                const item = confirmedItems[b.key] || {
+                  key: b.key,
+                  value: typeof b.value === 'number' ? b.value : 0,
+                  unit: b.unit,
+                  selected: true
+                };
+                return (
+                  <div
+                    key={b.key}
+                    className={`p-4 rounded-2xl border-2 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      item.selected
+                        ? 'bg-purple-50/50 border-purple-300'
+                        : 'bg-slate-50 border-slate-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={item.selected}
+                        onChange={(e) =>
+                          setConfirmedItems({
+                            ...confirmedItems,
+                            [b.key]: { ...item, selected: e.target.checked }
+                          })
+                        }
+                        className="w-5 h-5 rounded text-purple-700 focus:ring-purple-600 cursor-pointer"
+                      />
+                      <div>
+                        <span className="font-bold text-slate-900 text-base">{b.name}</span>
+                        <div className="text-xs text-slate-500">
+                          Reference: {b.reference_range} • Status: <span className="capitalize font-semibold">{b.status}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 pl-8 sm:pl-0">
+                      <input
+                        type="number"
+                        step="any"
+                        value={item.value}
+                        onChange={(e) =>
+                          setConfirmedItems({
+                            ...confirmedItems,
+                            [b.key]: { ...item, value: parseFloat(e.target.value) || 0 }
+                          })
+                        }
+                        disabled={!item.selected}
+                        className="w-24 p-2 text-base font-bold bg-white border-2 border-slate-300 rounded-xl focus:outline-none focus:border-purple-600 disabled:bg-slate-100"
+                      />
+                      <span className="text-sm font-semibold text-slate-600 w-16">{item.unit || b.unit}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => setConfirmModalReport(null)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-3 rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleConfirmBiomarkers}
+                disabled={confirmingBiomarkers}
+                className="bg-purple-700 hover:bg-purple-800 text-white font-extrabold px-6 py-3 rounded-xl text-sm shadow-md transition flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>{confirmingBiomarkers ? 'Updating Twin State...' : 'Confirm & Feed Into Twin'}</span>
               </button>
             </div>
           </div>

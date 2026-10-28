@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from backend.app.database.connection import get_db
 from backend.app.models.patient import Patient
 from backend.app.models.scenario import Scenario
+from backend.app.models.user import User
 from backend.app.schemas.scenario import ScenarioSimulateRequest, ScenarioComparisonResponse, ScenarioResponse
 from backend.app.simulation.engine import SimulationEngine
+from backend.app.services.auth import get_optional_current_user, verify_patient_authorization
 
 router = APIRouter(prefix="/patients/{patient_id}", tags=["Simulation"])
 
@@ -15,23 +17,22 @@ router = APIRouter(prefix="/patients/{patient_id}", tags=["Simulation"])
 def simulate_scenarios(
     patient_id: str,
     payload: ScenarioSimulateRequest,
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Executes a counterfactual scenario simulation:
-    - Scenario A: Current trajectory from active twin state
-    - Scenario B: Hypothetical altered condition with transparent parameter adjustment and mathematical rules.
+    - Scenario A: Baseline trajectory from active twin state
+    - Scenario B: Hypothetical altered condition with transparent parameter adjustment and mathematical kinetics.
     """
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Patient '{patient_id}' not found.")
+    verify_patient_authorization(patient_id, current_user, db)
 
     try:
         result = SimulationEngine.run_simulation(
             patient_id=patient_id,
             db=db,
-            horizon_minutes=payload.horizon_minutes or 360,
-            parameter_name=payload.parameter_name or "trend_damping_pct",
+            horizon_minutes=payload.horizon_minutes or 120,
+            parameter_name=payload.parameter_name or "activity_exertion_factor",
             parameter_value=payload.parameter_value,
             parameter_unit=payload.parameter_unit or "%"
         )
@@ -44,12 +45,11 @@ def simulate_scenarios(
 def get_scenarios(
     patient_id: str,
     limit: int = Query(20, ge=1, le=100),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """Retrieves stored historical scenario records for a patient."""
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Patient '{patient_id}' not found.")
+    verify_patient_authorization(patient_id, current_user, db)
 
     return db.query(Scenario).filter(
         Scenario.patient_id == patient_id

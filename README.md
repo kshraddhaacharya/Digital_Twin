@@ -1,330 +1,206 @@
-# Hackloop 2026 — Decentralized Patient Digital Twin (Web3 Core)
+# Sovereign Health Twin — Continuous Physiological Modeling & Web3 Data Integrity
 
-> **EDUCATIONAL & RESEARCH PROTOTYPE DISCLAIMER**  
-> This application is a clinical research and educational prototype demonstrating dynamic physiological state modeling, time-series forecasting, and counterfactual scenario simulation. **It does not provide clinical diagnoses, replace licensed healthcare professionals, prescribe therapies, or predict validated medical outcomes.**
-
----
-
-## 1. Executive Summary & Objective
-
-Healthcare decision-making frequently relies on episodic snapshots (point-in-time vital checks) rather than continuous understanding of how a patient's physiology evolves. 
-
-This project implements a full-stack **Decentralized Patient Digital Twin Engine (Web3 Core)** that answers four core physiological questions while providing complete patient data sovereignty:
-1. **Current Modeled State**: What is the patient's current continuous modeled physiological state?
-2. **Short-Term Trajectory**: If the current trajectory continues, what is forecasted to happen over the next 6 hours?
-3. **Counterfactual Simulation**: How might the modeled trajectory differ under a hypothetical altered physiological condition?
-4. **Dynamic Update, Invalidation & Web3 Anchoring**: How does the digital twin evolve when a new measurement arrives, how are historical forecasts invalidated, and how is cryptographic state immutability anchored to the blockchain?
+> **CRITICAL CLINICAL & EDUCATIONAL PROTOTYPE DISCLAIMER**  
+> Sovereign Health Twin is a digital health research and educational prototype. It demonstrates dynamic physiological state modeling, bounded counterfactual outcome simulation, and cryptographic record integrity on EVM smart contracts. **It is NOT a medical device, does NOT provide clinical diagnoses, does NOT prescribe medication or medical therapies, and must NEVER replace consultation, diagnosis, or evaluation by a licensed healthcare professional.** In any medical emergency, always call local emergency services immediately.
 
 ---
 
-## 2. Web3 & System Architecture
+## 1. Problem Statement & Executive Summary
 
-Web3 is the core architectural anchor of the application: every patient digital twin state snapshot is cryptographically committed to an **EVM Smart Contract (`PatientDigitalTwinRegistry.sol`)**, content-addressed to **IPFS**, and managed via **Sovereign Patient Consent**:
+Healthcare decision-making frequently relies on episodic snapshots—isolated, point-in-time vital checks or laboratory panels that fail to capture how an individual's condition continuously evolves. 
+
+**Sovereign Health Twin** transforms snapshot healthcare into continuous, auditable physiological understanding. The platform maintains a canonical, persistent patient digital twin that:
+1. **Tracks Inferred Physiological State**: Maintains continuous resting baseline, 60-minute rolling average, hourly trend slope, circadian diurnal phase, and context-aware classification.
+2. **Projects Bounded Baseline Trajectories**: Computes a forward-looking short-term forecast over a validated 120-minute horizon (maximum 180 minutes) with statistical prediction intervals rooted in residual standard error.
+3. **Simulates Counterfactual Outcomes**: Compares a continuation of the baseline trajectory (Scenario A) against an altered condition (Scenario B, such as resting recovery or mild activity exertion) utilizing transparent, documented asymptotic kinetics ($k = 0.03\text{ min}^{-1}$) with identical starting conditions.
+4. **Anchors Cryptographic Provenance on Web3**: Serializes state metadata deterministically, computes tamper-evident SHA-256 commitments and IPFS CIDv1 pointers, anchors them to an EVM smart contract (`PatientDigitalTwinRegistry.sol`), and enforces sovereign patient-controlled consent.
+5. **Maintains Medical Data Consistency & Privacy**: Keeps all protected health information, raw documents, and medical notes off-chain. Calculates trusted non-diagnostic metrics (e.g. Body Mass Index screening from current height and weight) consistently across every screen.
+
+---
+
+## 2. Architecture & Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      React + TypeScript + Vite Dashboard                │
-│  [Overview] [Digital Twin Engine] [Web3 & Sovereignty] [Forecast]       │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │ HTTP / REST & Web3 Ethers.js
-┌────────────────────────────────────▼────────────────────────────────────┐
-│                       FastAPI Backend Transport Layer                    │
-│      - Pydantic v2 Physiological Schema Validation & Bounds Check       │
-│      - Web3 Service Router (/api/web3/...)                              │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │
-┌────────────────────────────────────▼────────────────────────────────────┐
-│                    DIGITAL TWIN ENGINE (Domain Core)                    │
-│      - Latent State Extraction (Rolling Mean, Std, Slope, Circadian)    │
-│      - Deterministic State Versioning (v1 -> v2 -> v3...)               │
-│      - Automatic Stale Forecast Detection & Invalidation Guard          │
-│      - Web3 On-Chain Attestation & IPFS Content Hashing                 │
-└──────────────┬─────────────────────┬────────────────────┬───────────────┘
-               │                     │                    │
-┌──────────────▼─────┐      ┌────────▼───────────┐  ┌─────▼───────────────┐
-│ Forecasting Engine │      │ Scenario Engine    │  │ Web3 Smart Contract │
-│ - AR Diurnal Model │      │ - Scenario A vs B  │  │ - Solidity Registry │
-│ - Persistence Base │      │ - Documented Math  │  │ - SHA-256 Roots     │
-│ - 95% CI Bands     │      │ - Dynamic Kinetics │  │ - IPFS CIDs         │
-└────────────────────┘      └────────────────────┘  └─────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    React + TypeScript + Vite User Interface                   │
+│                                                                              │
+│  [1. My Health]      [2. Digital Twin]    [3. Health Records]  [4. Integrity]│
+│  - Vitals & Baseline - Baseline Trajectory - Vital Log & Vitals - EVM Status │
+│  - Screened BMI      - Scenario Simulation - PDF/PNG Magic-Byte - Verifier   │
+│  - Trend Slope       - Outdated Warning    - Lab Confirm Drawer - Consent Hub│
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│  [More Menu]: Dashboard Overview • Personal Videos • Disease Tracker • Cycle │
+└──────────────────────────────────────┬───────────────────────────────────────┘
+                                       │ HTTP REST API (Axios + JWT Auth)
+┌──────────────────────────────────────▼───────────────────────────────────────┐
+│                     FastAPI Transport & Access Control Layer                 │
+│      - Server-Side Cross-Patient Authorization Isolation (403 Forbidden)     │
+│      - Pydantic v2 Physiological Schema Validation & Bounds [30, 250] bpm    │
+│      - Magic-Bytes Content Verification (%PDF, \x89PNG, \xff\xd8\xff)       │
+└──────────────────────────────────────┬───────────────────────────────────────┘
+                                       │
+┌──────────────────────────────────────▼───────────────────────────────────────┐
+│                     DIGITAL TWIN DOMAIN ENGINE (Core)                        │
+│      - Latent State Extraction (Rolling Mean 60m, Std, Trend Slope, Context) │
+│      - State Versioning Ledger (v1 -> v2 -> v3 ...)                          │
+│      - Automatic Stale Forecast Detection & Invalidation Guard               │
+│      - Synthetic Telemetry Overwrite Protection for Registered Users         │
+└──────────────┬───────────────────────┬──────────────────────┬────────────────┘
+               │                       │                      │
+┌──────────────▼─────┐       ┌─────────▼──────────┐  ┌────────▼────────────────┐
+│ Forecasting Engine │       │ Simulation Engine  │  │ Web3 Integrity Service  │
+│ - Autoregressive   │       │ - Scenario A vs B  │  │ - Canonical JSON Spec   │
+│ - Diurnal Rhythm   │       │ - Identical Origin │  │ - SHA-256 Commitment    │
+│ - Horizon <= 180m  │       │ - Asymptotic Curve │  │ - IPFS CIDv1 Pointers   │
+│ - Residual SE Bands│       │ - Calm Guidance    │  │ - Dual-Mode Py-EVM & RPC│
+└──────────────┬─────┘       └─────────┬──────────┘  └────────┬────────────────┘
+               │                       │                      │
+┌──────────────▼───────────────────────▼──────────────────────▼────────────────┐
+│               Persistence Layer (SQLite / PostgreSQL & SQLAlchemy)           │
+│   patients • users • twin_states • measurements • forecasts • scenarios ...  │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 3. Technology Stack
 
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Recharts, Lucide React, Axios
+- **Backend API**: Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, pandas, NumPy, scikit-learn, pypdf, Pillow
 - **Web3 & Blockchain**:
-  - Solidity `0.8.20` (`PatientDigitalTwinRegistry.sol`)
-  - Web3.py (RPC integration for Ethereum / Polygon / Sepolia + high-fidelity in-process EVM)
-  - Ethers.js in frontend for Web3 wallet authentication
-  - IPFS content-addressed storage hashing (CIDv1 base32)
-  - Cryptographic state roots (SHA-256 / Keccak-256)
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Recharts, Lucide React, Axios
-- **Backend**: Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, pandas, NumPy, scikit-learn, pypdf
-- **Database**: SQLite (default zero-config local development) / PostgreSQL 16
-- **Testing & Deployment**: pytest, Docker, Docker Compose, OpenAPI/Swagger interactive documentation
+  - Smart Contract: Solidity `0.8.20` (`PatientDigitalTwinRegistry.sol`)
+  - Web3.py with dual-mode support:
+    - **In-Process EVM**: High-fidelity local Py-EVM (`EthereumTesterProvider`) executing real gas estimation, transaction signing, and mining locally without external node dependencies.
+    - **Remote EVM**: Compatible with Ethereum Sepolia, Polygon, Arbitrum, or local Hardhat/Anvil nodes via `WEB3_PROVIDER_URL`.
+  - Cryptographic Commitments: Deterministic canonical JSON serialization (`RFC 8785` principles) and SHA-256.
+  - Decentralized Addressing: IPFS CIDv1 content hashing (`ipfs://bafybeih...`).
+- **Persistence & Migrations**: SQLite (zero-config local database `patient_twin.db`) with forward migration scripts and automated database backups (`patient_twin.db.backup`).
+- **Testing**: pytest (31 automated unit and integration tests).
 
 ---
 
-## 4. Key Web3 & Digital Twin Capabilities
+## 4. The 4 Primary Destinations
 
-### 4.1 On-Chain State Anchoring & Cryptographic Attestation
-Every time the digital twin evolves ($v_1 \rightarrow v_2 \rightarrow v_3 \dots$):
-- A deterministic SHA-256 hash of the physiological features is computed.
-- The off-chain state payload is formatted into an IPFS CID (`ipfs://bafybeih...`).
-- An on-chain transaction is executed against `PatientDigitalTwinRegistry.sol`, storing the version, timestamp, heart rate, rolling mean, state root, and IPFS CID in block storage.
-- Real-time on-chain verification proves that off-chain data has never been tampered with.
+### 1. My Health (`my-health`)
+The personalized health overview showing:
+- Patient identity and demographic profile.
+- Current physiological measurements, timestamp of the latest observation, and 60-minute rolling mean.
+- Context-aware vital status classification (`normal`, `tachycardia`, `bradycardia`, `exercise_response`) taking activity into account.
+- Hourly trend slope and plain-English description of physiological trajectory.
+- Consistently screened physical metrics: Height, Weight, and calculated Body Mass Index (BMI) explicitly labeled as a general statistical screening tool, not a diagnosis.
 
-### 4.2 Sovereign Patient Consent (Decentralized Access Control)
-- The patient's Ethereum wallet owns their Digital Twin on the blockchain.
-- The patient can grant time-limited access to a researcher or clinician's Ethereum wallet via the smart contract function `grantAccess(patientId, researcher, durationSeconds)`.
-- The patient can revoke access at any moment via `revokeAccess(...)`.
-- Any external system can independently audit permission status via `hasAccess(...)`.
+### 2. Digital Twin (`digital-twin`)
+The core physiological simulation and counterfactual reasoning hub:
+- **Baseline Trajectory (Scenario A)**: Bounded forward projection over 120 minutes (up to 180 min max) using autoregressive trend extrapolation and 24-hour diurnal harmonic modeling.
+- **Counterfactual Trajectory (Scenario B)**: Simulates the physiological outcome of a hypothetical change in condition (e.g. resting recovery -25% or mild activity exertion +25%).
+- **Identical Starting State**: Scenarios A and B originate from the exact same starting measurement timestamp and value.
+- **Asymptotic Transition Kinetics**: Scenario B applies exponential relaxation dynamics ($k = 0.03\text{ min}^{-1}$) to model continuous biological response rather than impossible instantaneous jumps.
+- **Uncertainty Bands & Data Quality**: Displays prediction intervals rooted in residual standard error, data freshness warnings, and irregular interval notifications.
+- **Outdated Forecast Warning Guard**: Automatically detects when new readings or profile changes occurred after the forecast was generated, showing an amber "Forecast Outdated" warning with 1-click update.
 
-### 4.3 Stale Forecast Invalidation
-When the digital twin state advances (e.g. $v \rightarrow v+1$):
-- Forecasts generated under version $v$ are marked `is_stale = True`.
-- Stale forecasts are **preserved for auditing and retrospective comparison**, but displayed in the interface with a prominent amber `STALE` warning explaining which state version produced them.
+### 3. Health Records (`records`)
+The unified clinical records management center with two integrated tabs:
+- **Vital Readings Log**: Chronological table of all recorded observations, display of measurement context (`resting`, `active`, `post_exercise`), dynamic Web3 blockchain attestation status, and single-click manual entry form with physiological plausibility bounds.
+- **Medical Reports & Lab Documents**: Secure document upload supporting PDF, PNG, and JPG files with magic-byte content validation. Instant full-text search across parsed text, and a **Patient Review-and-Confirm Protocol** allowing patients to review and confirm extracted biomarkers before they feed into their digital twin state.
 
----
-
-## 5. API Endpoints Reference
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/web3/status` | Current EVM connection, network, contract address, block height |
-| `GET` | `/api/web3/patients/{id}/twin/{ver}/verify` | On-chain cryptographic state integrity verification |
-| `POST` | `/api/web3/patients/{id}/access/grant` | Sovereign consent: grant researcher wallet access on-chain |
-| `POST` | `/api/web3/patients/{id}/access/revoke` | Sovereign consent: revoke researcher wallet access on-chain |
-| `GET` | `/api/web3/patients/{id}/access/check` | Check wallet permission status on-chain |
-| `GET` | `/api/patients` | List all registered patients |
-| `POST` | `/api/patients/synthetic` | Deterministically generate and seed synthetic telemetry stream (State v1 + On-Chain Attestation) |
-| `GET` | `/api/patients/{id}/twin` | Get active digital twin state features & Web3 attestation metadata |
-| `GET` | `/api/patients/{id}/twin/history` | Full historical version audit trail |
-| `POST` | `/api/patients/{id}/measurements` | Ingest single measurement (advances twin state version + on-chain attestation) |
-| `POST` | `/api/patients/{id}/forecast` | Generate forward projection from active state |
-| `POST` | `/api/patients/{id}/simulate` | Run Scenario A vs Scenario B counterfactual simulation |
-| `GET` | `/api/patients/{id}/evaluation` | Run chronological out-of-sample model evaluation |
-
-Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
+### 4. Data Integrity (`integrity`)
+The dedicated Web3 blockchain provenance and data sovereignty center:
+- **Educational Framing**: Explains clearly that blockchain establishes mathematical data integrity and provenance, not medical truth or clinical diagnosis.
+- **Live Network Status**: Displays connected EVM chain ID, execution mode (remote RPC vs in-process Py-EVM), contract address (`PatientDigitalTwinRegistry.sol`), and latest mined block number.
+- **Independent Cryptographic Verification Tool**: Allows anyone to re-run canonical serialization and SHA-256 state recalculation in real time, comparing the candidate hash against the on-chain root. Distinguishes 5 verified states: `VERIFIED`, `SIMULATED`, `PENDING`, `MISMATCH`, and `NOT_ANCHORED`.
+- **Sovereign Consent Manager**: Gives patients complete control over their medical data. Patients can grant time-locked access permissions to researcher or clinician Ethereum addresses, verify active access on-chain, or revoke permissions immediately.
+- **Cryptographic Audit Trail**: Displays the state hash chain linking each twin state version to the `previous_state_hash`, forming a tamper-evident audit ledger.
 
 ---
 
-## 6. Quick Start & Setup
+## 5. Security & Privacy Model
+
+1. **Off-Chain Health Data Storage**: Raw medical documents, diagnosis notes, patient names, and fine-grained physiological telemetry remain in protected off-chain storage.
+2. **Cryptographic Hashes On-Chain**: Only deterministic cryptographic commitments (`bytes32` roots) and non-identifying state metadata (version, timestamp, scaled heart rate) are written to the public smart contract.
+3. **Server-Side Authorization**: Every API route enforces server-side patient verification (`verify_patient_authorization`). A patient authenticated as Patient A cannot view or manipulate records for Patient B (HTTP 403 Forbidden).
+4. **Synthetic Overwrite Protection**: The synthetic patient telemetry generator cannot overwrite registered real patients.
+5. **Magic-Byte Document Validation**: Uploaded documents are verified using file header signatures (`%PDF` for PDFs, `\x89PNG\r\n\x1a\n` for PNGs, `\xff\xd8\xff` for JPEGs) to prevent malicious or malformed file spoofing.
+6. **No Embedded Secrets**: Private keys, JWT secrets, and credentials use environment configuration with safe development fallbacks.
+
+---
+
+## 6. Setup, Execution & Testing Commands
 
 ### Prerequisites
-- Python 3.10+ (Python 3.12 recommended)
-- Node.js 18+ (Node 24 recommended)
-- Docker & Docker Compose (optional)
+- Python 3.10+ (tested on Python 3.12)
+- Node.js 18+ (tested on Node 20 / 24)
+- PowerShell (Windows) or Bash (macOS / Linux)
 
-### 6.1 Local Development (Recommended)
+### 6.1 Backend Setup & Startup
 
-#### 1. Backend Setup
-```bash
-# From repository root
+```powershell
+# 1. Activate virtual environment
+.\backend\venv\Scripts\Activate.ps1
+
+# 2. Install dependencies (if not already installed)
 pip install -r backend/requirements.txt
 
-# Start FastAPI server
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+# 3. Start the FastAPI backend server
+$env:PYTHONPATH="."
+.\backend\venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-The backend automatically connects to the EVM blockchain, deploys the `PatientDigitalTwinRegistry` contract, initializes the database, and seeds demo patient `PT-DEMO-001` with State Version 1 attested on-chain.
 
-#### 2. Frontend Setup
-```bash
-# In a second terminal
+The backend server starts at **`http://127.0.0.1:8000`**.  
+Interactive Swagger API documentation is available at **`http://127.0.0.1:8000/docs`**.
+
+### 6.2 Frontend Setup & Startup
+
+```powershell
+# In a separate terminal
 cd frontend
 npm install
 npm run dev
 ```
-Open **`http://localhost:5173`** in your browser to access the interactive dashboard.
+
+Open **`http://localhost:5173`** in your browser.
+
+### 6.3 Running Automated Tests
+
+Run the complete backend test suite across all modules:
+
+```powershell
+$env:PYTHONPATH="."
+.\backend\venv\Scripts\python.exe -m pytest backend/tests/ -v
+```
+
+**Results: 31 passed in ~10s!**
+- `backend/tests/test_sovereign_health_twin.py` (11 tests): Canonical serialization, insufficient data refusal, irregular intervals, physiological bounds, scenario comparison with identical origin, stale forecast invalidation, cross-patient authorization isolation, synthetic overwrite guard, magic-bytes file validation, Web3 verification states, and BMI screening calculations.
+- `backend/tests/test_new_features.py` (3 tests): Medical report parser, disease tracker, and period cycle tracker.
+- `backend/tests/test_twin_system.py` (17 tests): Ingestion, twin initialization, autoregressive diurnal forecasting, scenario simulation, and out-of-sample evaluation.
+
+Run the frontend TypeScript and build check:
+
+```powershell
+npm run build --prefix frontend
+```
+
+**Result: Built with 0 errors!**
 
 ---
 
-## 7. Automated Testing & Verification
+## 7. Manual Acceptance Test Checklist
 
-### Run Pytest Suite (Includes Web3 Tests)
-```bash
-python -m pytest backend/tests -v
-```
-All 17 tests verify:
-- Smart contract deployment & EVM connection
-- On-chain state attestation and tamper-evident SHA-256 verification
-- Sovereign consent (grant/revoke access on-chain)
-- Deterministic synthetic generator
-- CSV/JSON validation and parsing
-- Twin state versioning and stale forecast invalidation
-- Counterfactual scenario reproducibility
-- Strict chronological evaluation
-
-### Run Automated Demonstration Script
-```bash
-python backend/scripts/run_demo_sequence.py
-```
-This automated script walks through all 14 steps, printing verified `[OK]` and `[Web3]` on-chain checks for each state transition.
-
----
-
-## 2. System Architecture
-
-The digital twin engine is the central component of the system, decoupled from database operations, API transport, forecasting algorithms, and UI views.
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      React + TypeScript + Vite Dashboard                │
-│  [Overview] [Digital Twin Engine] [Forecasting] [Scenarios] [Data] [Eval]│
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │ HTTP / REST (Axios)
-┌────────────────────────────────────▼────────────────────────────────────┐
-│                       FastAPI Backend Transport Layer                    │
-│      - Pydantic v2 Physiological Schema Validation & Bounds Check       │
-│      - CSV / JSON / PDF Ingestion Processors                            │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │
-┌────────────────────────────────────▼────────────────────────────────────┐
-│                    DIGITAL TWIN ENGINE (Domain Core)                    │
-│      - Latent State Extraction (Rolling Mean, Std, Slope, Circadian)    │
-│      - Deterministic State Versioning (v1 -> v2 -> v3...)               │
-│      - Automatic Stale Forecast Detection & Invalidation Guard          │
-│      - Late-Arriving Observation Chronological Insertion Ledger         │
-└───────────────────────┬─────────────────────────┬───────────────────────┘
-                        │                         │
-┌───────────────────────▼────────┐       ┌────────▼───────────────────────┐
-│       Forecasting Engine       │       │   Scenario Simulation Engine   │
-│  - Autoregressive Diurnal      │       │  - Scenario A: Baseline        │
-│  - Baseline Persistence        │       │  - Scenario B: Counterfactual  │
-│  - 95% Uncertainty Bands       │       │  - Documented Math & Bounds    │
-└───────────────────────┬────────┘       └────────┬───────────────────────┘
-                        │                         │
-┌───────────────────────▼─────────────────────────▼───────────────────────┐
-│                   Persistence Layer (SQLAlchemy 2.0)                    │
-│       SQLite (Local Dev Default) / PostgreSQL 16 (Docker Compose)       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 3. Technology Stack
-
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Recharts, Lucide React, Axios
-- **Backend**: Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, pandas, NumPy, scikit-learn, pypdf
-- **Database**: SQLite (default zero-config local development) / PostgreSQL 16
-- **Testing & Deployment**: pytest, Docker, Docker Compose, OpenAPI/Swagger interactive documentation
-
----
-
-## 4. Key Digital Twin Capabilities
-
-### 4.1 Distinct State Representation
-The twin maintains a clear separation between **raw observed measurements** (e.g. sensor readings) and **inferred physiological state features** (windowed 60-min rolling mean, std dev, hourly trend slope, diurnal circadian harmonic phase, and physiological variability index).
-
-### 4.2 Explicit State Versioning & Audit Trail
-- **Version 1**: Initialized from historical measurements.
-- **Version 2**: Evolved following ingestion of a new valid observation.
-- Every forecast and scenario record explicitly references the exact `twin_state_version` and timestamp of the anchor observation used.
-
-### 4.3 Stale Forecast Invalidation
-When the digital twin state advances (e.g. $v \rightarrow v+1$):
-- Forecasts generated under version $v$ are marked `is_stale = True`.
-- Stale forecasts are **preserved for auditing and retrospective comparison**, but displayed in the interface with a prominent amber `STALE` warning explaining which state version produced them.
-
-### 4.4 Physiological Boundary Validation & Late Arrivals
-- Measurements outside plausible physiological bounds (e.g., heart rate $<30$ or $>250$ bpm, body temp $<30^\circ\text{C}$ or $>45^\circ\text{C}$) are rejected with HTTP 422 before touching the twin.
-- Late-arriving observations ($t < t_{\text{latest}}$) are flagged `is_late_arrival = True`, inserted chronologically, and trigger a state recalculation without falsely overwriting the latest time horizon.
-
----
-
-## 5. API Endpoints Reference
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/health` | Healthcheck and system status |
-| `GET` | `/api/patients` | List all registered patients |
-| `POST` | `/api/patients` | Register a new patient |
-| `POST` | `/api/patients/synthetic` | Deterministically generate and seed synthetic telemetry stream (State v1) |
-| `GET` | `/api/patients/{id}` | Get patient demographics and active twin summary |
-| `GET` | `/api/patients/{id}/measurements` | Query historical observation ledger |
-| `POST` | `/api/patients/{id}/measurements` | Ingest single measurement (advances twin state version) |
-| `POST` | `/api/patients/{id}/upload-csv` | Ingest batch observations via CSV |
-| `POST` | `/api/patients/{id}/upload-json` | Ingest batch observations via JSON |
-| `POST` | `/api/patients/{id}/upload-pdf` | Extract vitals from clinical PDF report |
-| `GET` | `/api/patients/{id}/twin` | Get active digital twin state features |
-| `GET` | `/api/patients/{id}/twin/history` | Full historical version audit trail |
-| `POST` | `/api/patients/{id}/forecast` | Generate forward projection from active state |
-| `GET` | `/api/patients/{id}/forecasts` | List past forecasts with freshness/stale flags |
-| `POST` | `/api/patients/{id}/simulate` | Run Scenario A vs Scenario B counterfactual simulation |
-| `GET` | `/api/patients/{id}/evaluation` | Run chronological out-of-sample model evaluation |
-
-Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
-
----
-
-## 6. Quick Start & Setup
-
-### Prerequisites
-- Python 3.10+ (Python 3.12 recommended)
-- Node.js 18+ (Node 24 recommended)
-- Docker & Docker Compose (optional for containerized deployment)
-
-### 6.1 Local Development (Recommended)
-
-#### 1. Backend Setup
-```bash
-# From repository root
-pip install -r backend/requirements.txt
-
-# Start FastAPI server
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-The backend initializes the local SQLite database (`patient_twin.db`) and automatically seeds demo patient `PT-DEMO-001` with State Version 1.
-
-#### 2. Frontend Setup
-```bash
-# In a second terminal
-cd frontend
-npm install
-npm run dev
-```
-Open **`http://localhost:5173`** in your browser to access the interactive dashboard.
-
----
-
-### 6.2 Docker Compose Deployment
-
-To run the complete production stack (PostgreSQL + FastAPI + Nginx React Frontend):
-```bash
-docker compose up --build
-```
-- Frontend: `http://localhost:3000`
-- Backend API Docs: `http://localhost:8000/docs`
-
----
-
-## 7. Automated Testing & Verification
-
-### Run Pytest Suite
-```bash
-python -m pytest backend/tests -v
-```
-All 14 tests verify:
-- Deterministic synthetic generator
-- CSV/JSON validation and parsing
-- Twin initialization and feature extraction
-- State version increments and stale forecast marking
-- Late-arriving observation detection
-- Counterfactual scenario reproducibility
-- Strict chronological evaluation (zero test data leakage)
-- Prevention of twin state corruption upon invalid input
-
-### Run 14-Step Hackloop Demonstration Script
-To reproduce the exact mentor demonstration sequence specified in Section 11:
-```bash
-python backend/scripts/run_demo_sequence.py
-```
-This automated script walks through all 14 steps, printing verified `[OK]` checks for each state transition.
+| Step | Action | Expected Result | Verified |
+| :--- | :--- | :--- | :---: |
+| 1 | Launch Backend & Frontend | Backend runs on `:8000` with in-process EVM deployed; Frontend opens on `:5173` | [x] |
+| 2 | Load Demo Patient | Click "Load Demo Patient" button in Navbar | Twin initializes to State Version 1 with verified on-chain attestation | [x] |
+| 3 | Inspect "1. My Health" | Navigate to "My Health" tab | Displays current heart rate, resting baseline, trend slope, and BMI screening | [x] |
+| 4 | Run Simulation in "2. Digital Twin" | Navigate to "Digital Twin" tab | Compares Scenario A (Baseline) vs Scenario B (Activity/Rest) over 120 min | [x] |
+| 5 | Verify Outdated Forecast Warning | Add a new reading in "Health Records", return to "Digital Twin" | Amber "Newer Reading Available — Outlook is Outdated" banner appears | [x] |
+| 6 | Ingest Reading in "3. Health Records" | Enter a reading with Context (e.g. 85 bpm, Active) | State advances to Version 2; table shows dynamic attestation badge | [x] |
+| 7 | Upload Report & Confirm Biomarker | Upload valid PDF report in "Medical Reports" tab | Parses vitals; clicking "Review & Confirm" feeds verified vital into twin | [x] |
+| 8 | Reject Spoofed File Extension | Attempt to upload a text file renamed to `.pdf` | Rejected with 400 Bad Request ("does not match a valid PDF header") | [x] |
+| 9 | Verify Data Integrity in "4. Data Integrity" | Click "Verify Record Integrity" button | Computes SHA-256 state hash and confirms match with smart contract | [x] |
+| 10 | Sovereign Consent Access Control | Enter an Ethereum address and click "Grant Time-Locked Access" | On-chain transaction executed and permission confirmed on smart contract | [x] |
+| 11 | Cross-Patient Isolation Check | User Alpha attempts to access Patient Beta's data | Server returns 403 Forbidden | [x] |
 
 ---
 
 ## 8. License & Attribution
 
-Hackloop 2026 — Digital Twin of a Patient Research Prototype.  
-Developed following strict medical research prototype guidelines. Not for clinical diagnostic use.
+Developed for **HackLoop 2026**. Built with privacy-first digital twin modeling and EVM cryptographic anchoring. For educational and research purposes only.

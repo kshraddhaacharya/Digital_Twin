@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
+from backend.app.utils.datetime_utils import to_utc_iso
 
 
 class ForecastPoint(BaseModel):
@@ -10,6 +11,10 @@ class ForecastPoint(BaseModel):
     upper_bound_95: float
     lower_bound_80: float
     upper_bound_80: float
+
+    @field_serializer("timestamp", when_used="json")
+    def serialize_timestamp(self, dt: Optional[datetime]) -> Optional[str]:
+        return to_utc_iso(dt)
 
 
 class ForecastRequest(BaseModel):
@@ -32,3 +37,7 @@ class ForecastResponse(BaseModel):
     stale_reason: Optional[str] = None
     quality_warnings: List[str]
     created_at: datetime
+
+    @field_serializer("last_observation_timestamp", "created_at", when_used="json")
+    def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
+        return to_utc_iso(dt)

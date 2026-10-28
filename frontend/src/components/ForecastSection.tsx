@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import { TwinState, Forecast, Measurement } from '../types';
 import { api } from '../services/api';
+import { formatIST, formatISTTimeOnly } from '../utils/dateUtils';
 
 interface ChartDataPoint {
   time: string;
@@ -83,7 +84,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({
     .slice(0, 32)
     .reverse()
     .map((m) => ({
-      time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatISTTimeOnly(m.timestamp, false),
       actual: m.value,
       predicted: null,
       lower_95: null,
@@ -97,7 +98,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({
 
   const forecastPoints: ChartDataPoint[] = currentForecast
     ? currentForecast.predicted_trajectory.map((p) => ({
-        time: new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatISTTimeOnly(p.timestamp, false),
         actual: null,
         predicted: p.predicted_value,
         lower_95: p.lower_bound_95,
@@ -218,7 +219,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({
             </div>
             <p className="mt-1">
               This forecast was generated from <strong>Twin State Version {currentForecast.twin_state_version}</strong> at{' '}
-              {new Date(currentForecast.last_observation_timestamp).toLocaleString()}.
+              {formatIST(currentForecast.last_observation_timestamp)}.
               The patient's digital twin has since evolved to{' '}
               <strong>State Version {twinState?.state_version}</strong>.
             </p>
@@ -266,7 +267,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({
                 {forecasts.map((f, idx) => (
                   <option key={f.id} value={idx}>
                     #{f.id} - v{f.twin_state_version} {f.is_stale ? '(Stale)' : '(Active)'} -{' '}
-                    {new Date(f.created_at).toLocaleTimeString()}
+                    {formatIST(f.created_at)}
                   </option>
                 ))}
               </select>
@@ -354,7 +355,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span className="text-slate-400 font-medium">Anchor Observation Time</span>
               <div className="font-bold text-slate-800 mt-1 truncate">
-                {new Date(currentForecast.last_observation_timestamp).toLocaleString()}
+                {formatIST(currentForecast.last_observation_timestamp)}
               </div>
             </div>
 

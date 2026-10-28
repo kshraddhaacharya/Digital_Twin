@@ -9,6 +9,7 @@ from backend.app.models.user import User
 from backend.app.models.cycle import PeriodCycle
 from backend.app.models.twin_state import TwinState
 from backend.app.services.auth import get_current_user
+from backend.app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/cycle", tags=["Menstrual / Period Tracker"])
 
@@ -53,7 +54,7 @@ def log_period_cycle(
         "flow_intensity": cycle.flow_intensity,
         "symptoms": cycle.symptoms,
         "notes": cycle.notes,
-        "created_at": cycle.created_at.isoformat()
+        "created_at": to_utc_iso(cycle.created_at)
     }
 
 
@@ -77,7 +78,7 @@ def list_cycle_history(
             "flow_intensity": l.flow_intensity,
             "symptoms": l.symptoms,
             "notes": l.notes,
-            "created_at": l.created_at.isoformat()
+            "created_at": to_utc_iso(l.created_at)
         }
         for l in logs
     ]

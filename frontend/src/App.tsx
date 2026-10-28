@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Home, Heart } from 'lucide-react';
 import { LandingPage } from './components/LandingPage';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { MyHealthView } from './components/MyHealthView';
+import { DigitalTwinView } from './components/DigitalTwinView';
+import { HealthRecordsView } from './components/HealthRecordsView';
+import { DataIntegrityView } from './components/DataIntegrityView';
 import { FutureOutlookView } from './components/FutureOutlookView';
 import { RecordHistoryView } from './components/RecordHistoryView';
 import { ProfileView } from './components/ProfileView';
@@ -29,6 +33,7 @@ import {
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('landing');
+  const [tabHistory, setTabHistory] = useState<string[]>(['my-health']);
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('PT-DEMO-001');
@@ -50,6 +55,66 @@ export function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTabDisplayName = (tab: string): string => {
+    switch (tab) {
+      case 'my-health': return '1. My Health';
+      case 'digital-twin':
+      case 'future-outlook': return '2. Digital Twin';
+      case 'records':
+      case 'record-history':
+      case 'reports': return '3. Health Records';
+      case 'integrity':
+      case 'web3': return '4. Data Integrity';
+      case 'dashboard': return 'Dashboard Overview';
+      case 'videos': return 'Personal Videos';
+      case 'disease-tracker': return 'Disease Tracker';
+      case 'cycle-tracker': return 'Period Tracker';
+      case 'profile': return 'My Health Profile';
+      default: return tab;
+    }
+  };
+
+  const navigateTab = (newTab: string) => {
+    if (newTab === 'landing') {
+      setActiveTab('landing');
+      return;
+    }
+    setActiveTab(newTab);
+    window.location.hash = newTab;
+    setTabHistory((prev) => {
+      if (prev[prev.length - 1] === newTab) return prev;
+      return [...prev, newTab];
+    });
+  };
+
+  const handleGoBack = () => {
+    setTabHistory((prev) => {
+      if (prev.length <= 1) {
+        setActiveTab('my-health');
+        window.location.hash = 'my-health';
+        return ['my-health'];
+      }
+      const updated = prev.slice(0, -1);
+      const target = updated[updated.length - 1] || 'my-health';
+      setActiveTab(target);
+      window.location.hash = target;
+      return updated;
+    });
+  };
+
+  // Sync hash routing on browser back/forward
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash !== activeTab) {
+        setActiveTab(hash);
+        setTabHistory((prev) => (prev[prev.length - 1] === hash ? prev : [...prev, hash]));
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [activeTab]);
+
   // Initialize session from token if available
   useEffect(() => {
     const initSession = async () => {
@@ -59,7 +124,7 @@ export function App() {
           const user = await api.getMe();
           setCurrentUser(user);
           setSelectedPatientId(user.patient_id);
-          setActiveTab('dashboard');
+          navigateTab('my-health');
         } catch (err) {
           api.setToken(null);
           setCurrentUser(null);
@@ -79,6 +144,15 @@ export function App() {
       }
     } catch (err) {
       console.error('Failed to fetch patients:', err);
+    }
+  };
+
+  const loadReportsForPatient = async (patientId: string) => {
+    try {
+      const reps = await api.getReports(undefined, undefined, undefined, patientId);
+      setReports(reps);
+    } catch (err) {
+      console.error('Failed to fetch patient reports:', err);
     }
   };
 
@@ -102,6 +176,9 @@ export function App() {
 
       if (fcs.status === 'fulfilled') setForecasts(fcs.value);
       else setForecasts([]);
+
+      // Always load reports for current patient
+      await loadReportsForPatient(patientId);
     } catch (err) {
       setError('Failed to load patient records.');
     } finally {
@@ -110,10 +187,10 @@ export function App() {
   };
 
   const loadUserFeatures = async () => {
+    loadReportsForPatient(selectedPatientId);
     if (!currentUser) return;
     try {
-      const [reps, vids, conds, logs, analytics, cSum, cHist] = await Promise.allSettled([
-        api.getReports(),
+      const [vids, conds, logs, analytics, cSum, cHist] = await Promise.allSettled([
         api.getVideos(),
         api.getConditions(),
         api.getConditionLogs(),
@@ -122,7 +199,6 @@ export function App() {
         api.getCycleHistory(),
       ]);
 
-      if (reps.status === 'fulfilled') setReports(reps.value);
       if (vids.status === 'fulfilled') setVideos(vids.value);
       if (conds.status === 'fulfilled') setConditions(conds.value);
       if (logs.status === 'fulfilled') setConditionLogs(logs.value);
@@ -149,7 +225,7 @@ export function App() {
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setSelectedPatientId(user.patient_id);
-    setActiveTab('dashboard');
+    navigateTab('my-health');
     loadPatients();
     loadPatientData(user.patient_id);
   };
@@ -157,12 +233,12 @@ export function App() {
   const handleLogout = () => {
     api.setToken(null);
     setCurrentUser(null);
-    setActiveTab('landing');
+    navigateTab('landing');
   };
 
   const handleExploreDemo = () => {
     setSelectedPatientId('PT-DEMO-001');
-    setActiveTab('dashboard');
+    navigateTab('my-health');
     loadPatientData('PT-DEMO-001');
   };
 
@@ -178,7 +254,7 @@ export function App() {
       await loadPatients();
       setSelectedPatientId('PT-DEMO-001');
       await loadPatientData('PT-DEMO-001');
-      setActiveTab('my-health');
+      navigateTab('my-health');
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed to load demo patient.');
       setLoading(false);
@@ -209,20 +285,90 @@ export function App() {
         }}
         onLoadSynthetic={handleLoadSynthetic}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={navigateTab}
         loading={loading}
         onLogout={handleLogout}
-        onGoHome={() => setActiveTab('landing')}
+        onGoHome={() => navigateTab('landing')}
       />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Navigation Breadcrumb and Universal Back Button */}
+        {activeTab !== 'my-health' && activeTab !== 'landing' && (
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm">
+            <div className="flex items-center space-x-2 text-sm text-slate-600 font-semibold">
+              <button
+                onClick={() => navigateTab('my-health')}
+                className="hover:text-purple-700 hover:underline flex items-center space-x-1"
+              >
+                <Heart className="w-4 h-4 text-purple-600" />
+                <span>My Health</span>
+              </button>
+              <span>/</span>
+              <span className="text-slate-900 font-black">{getTabDisplayName(activeTab)}</span>
+            </div>
+
+            <button
+              onClick={handleGoBack}
+              className="inline-flex items-center space-x-2 bg-purple-50 hover:bg-purple-100 text-purple-900 font-extrabold text-sm px-4 py-2 rounded-xl border border-purple-200 transition active:scale-95 min-h-[40px] self-start sm:self-auto"
+            >
+              <ArrowLeft className="w-4 h-4 text-purple-700" />
+              <span>Back to Previous Section</span>
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 text-red-900 rounded-2xl text-base font-semibold shadow-sm">
             {error}
           </div>
         )}
 
-        {/* View 1: Personalized Dashboard */}
+        {/* Primary Destination 1: My Health Screen */}
+        {activeTab === 'my-health' && (
+          <MyHealthView
+            patient={currentPatient}
+            twinState={twinState}
+            recentMeasurements={measurements}
+            onNavigateTab={(tab) => navigateTab(tab)}
+            onLoadSynthetic={handleLoadSynthetic}
+          />
+        )}
+
+        {/* Primary Destination 2: Digital Twin Simulation & Outlook */}
+        {(activeTab === 'digital-twin' || activeTab === 'future-outlook') && (
+          <DigitalTwinView
+            patientId={selectedPatientId}
+            twinState={twinState}
+            measurements={measurements}
+            forecasts={forecasts}
+            onRefreshData={() => loadPatientData(selectedPatientId)}
+          />
+        )}
+
+        {/* Primary Destination 3: Health Records & Lab Reports Hub */}
+        {(activeTab === 'records' || activeTab === 'record-history' || activeTab === 'reports') && (
+          <HealthRecordsView
+            patientId={selectedPatientId}
+            measurements={measurements}
+            twinState={twinState}
+            reports={reports}
+            initialSubTab={activeTab === 'reports' ? 'reports' : 'measurements'}
+            onDataChanged={() => loadPatientData(selectedPatientId)}
+            onNavigateTab={(tab) => navigateTab(tab)}
+            onReportsChanged={loadUserFeatures}
+          />
+        )}
+
+        {/* Primary Destination 4: Data Integrity & Sovereign Consent */}
+        {(activeTab === 'integrity' || activeTab === 'web3') && (
+          <DataIntegrityView
+            patient={currentPatient}
+            twinState={twinState}
+            onRefresh={() => loadPatientData(selectedPatientId)}
+          />
+        )}
+
+        {/* More Module 1: Personalized Dashboard Overview */}
         {activeTab === 'dashboard' && (
           <DashboardView
             user={currentUser || {
@@ -232,8 +378,8 @@ export function App() {
               patient_id: selectedPatientId,
               gender: currentPatient?.gender || 'Female',
               age: currentPatient?.age || 56,
-              height: 165,
-              body_weight: 68,
+              height: currentPatient?.height_cm || 165,
+              body_weight: currentPatient?.weight_kg || 68,
               existing_conditions: currentPatient?.medical_notes || 'Demonstration Patient',
               created_at: new Date().toISOString()
             }}
@@ -242,54 +388,12 @@ export function App() {
             reports={reports}
             videos={videos}
             diseaseAnalytics={diseaseAnalytics}
-            onNavigate={(tab) => setActiveTab(tab)}
+            onNavigate={(tab) => navigateTab(tab)}
             onQuickLoadDemo={handleLoadSynthetic}
           />
         )}
 
-        {/* View 2: My Health Screen */}
-        {activeTab === 'my-health' && (
-          <MyHealthView
-            patient={currentPatient}
-            twinState={twinState}
-            recentMeasurements={measurements}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-            onLoadSynthetic={handleLoadSynthetic}
-          />
-        )}
-
-        {/* View 3: Future Outlook Screen */}
-        {activeTab === 'future-outlook' && (
-          <FutureOutlookView
-            patientId={selectedPatientId}
-            twinState={twinState}
-            measurements={measurements}
-            forecasts={forecasts}
-            onRefreshData={() => loadPatientData(selectedPatientId)}
-          />
-        )}
-
-        {/* View 4: Record History Screen */}
-        {activeTab === 'record-history' && (
-          <RecordHistoryView
-            patientId={selectedPatientId}
-            measurements={measurements}
-            twinState={twinState}
-            onDataChanged={() => loadPatientData(selectedPatientId)}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-          />
-        )}
-
-        {/* View 5: Medical Reports & Search Engine */}
-        {activeTab === 'reports' && (
-          <ReportsView
-            reports={reports}
-            onReportsChanged={loadUserFeatures}
-            onNavigateToTwin={() => setActiveTab('my-health')}
-          />
-        )}
-
-        {/* View 6: Personal Video Library */}
+        {/* More Module 2: Personal Video Library */}
         {activeTab === 'videos' && (
           <VideosView
             videos={videos}
@@ -297,7 +401,7 @@ export function App() {
           />
         )}
 
-        {/* View 7: Disease Tracker & Timeline */}
+        {/* More Module 3: Disease Tracker & Timeline */}
         {activeTab === 'disease-tracker' && (
           <DiseaseTrackerView
             conditions={conditions}
@@ -307,7 +411,7 @@ export function App() {
           />
         )}
 
-        {/* View 8: Period Cycle Tracker */}
+        {/* More Module 4: Period Cycle Tracker */}
         {activeTab === 'cycle-tracker' && (
           <CycleTrackerView
             summary={cycleSummary}
@@ -316,7 +420,7 @@ export function App() {
           />
         )}
 
-        {/* View 9: My Health Profile Management */}
+        {/* More Module 5: My Health Profile Management */}
         {activeTab === 'profile' && (
           <ProfileView
             user={currentUser || {
@@ -326,8 +430,8 @@ export function App() {
               patient_id: selectedPatientId,
               gender: currentPatient?.gender || 'Female',
               age: currentPatient?.age || 56,
-              height: 165,
-              body_weight: 68,
+              height: currentPatient?.height_cm || 165,
+              body_weight: currentPatient?.weight_kg || 68,
               existing_conditions: currentPatient?.medical_notes || 'Demonstration Patient',
               created_at: new Date().toISOString()
             }}

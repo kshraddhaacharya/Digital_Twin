@@ -26,6 +26,7 @@ wheels/
 .pytest_cache/
 *.db
 patient_twin.db
+*.backup
 
 # Node / Frontend
 node_modules/

@@ -10,10 +10,23 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
-  Heart
+  Heart,
+  Activity
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ReferenceArea,
+  ReferenceLine
+} from 'recharts';
 import { Measurement, TwinState } from '../types';
 import { api } from '../services/api';
+import { formatIST, formatISTTimeOnly, formatISTDateOnly } from '../utils/dateUtils';
 
 interface RecordHistoryViewProps {
   patientId: string;
@@ -31,6 +44,7 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
   onNavigateTab,
 }) => {
   const [newValue, setNewValue] = useState<string>('78');
+  const [measContext, setMeasContext] = useState<string>('resting');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -41,6 +55,7 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
     { label: 'Resting (72 bpm)', val: 72 },
     { label: 'Normal (78 bpm)', val: 78 },
     { label: 'After Walk (85 bpm)', val: 85 },
+    { label: 'Active (95 bpm)', val: 95 },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,9 +64,9 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
     setSuccessMessage(null);
     setErrorMessage(null);
 
-    const valNum = parseFloat(newValue);
-    if (isNaN(valNum) || valNum < 30 || valNum > 250) {
-      setErrorMessage('Please enter a realistic heart rate between 30 and 250 bpm.');
+    const valNum = parseFloat(newValue.trim());
+    if (!newValue.trim() || isNaN(valNum) || valNum < 30 || valNum > 250) {
+      setErrorMessage('Please enter a valid heart rate between 30 and 250 bpm (physiologically realistic range).');
       setSubmitting(false);
       return;
     }
@@ -64,6 +79,7 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
         value: valNum,
         unit: 'bpm',
         source: 'patient_entry',
+        context: measContext,
       });
 
       const newVer = res.digital_twin_update.current_state_version;
@@ -72,16 +88,27 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
       );
       onDataChanged();
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.detail || 'Failed to save measurement.');
+      setErrorMessage(err.response?.data?.detail || 'Failed to save measurement. Please verify inputs.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const formatDateTime = (isoString: string) => {
-    const d = new Date(isoString);
-    return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    return formatIST(isoString);
   };
+
+  const chartData = measurements
+    .filter((m) => m.measurement_type === 'heart_rate')
+    .slice(0, 30)
+    .reverse()
+    .map((m) => ({
+      time: formatISTTimeOnly(m.timestamp, false),
+      date: formatISTDateOnly(m.timestamp),
+      bpm: Math.round(m.value),
+      context: m.context || 'resting',
+      source: m.source || 'patient_entry',
+    }));
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -91,8 +118,133 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
           My Health Readings & History
         </h2>
         <p className="text-lg text-slate-700 font-medium mt-2 leading-relaxed">
-          Record a new heart rate measurement, or review your previous verified health log.
+          Record a new heart rate measurement, track your live evolution chart, or inspect your verified physiological twin state.
         </p>
+      </div>
+
+      {/* LATEST BPM & PHYSIOLOGICAL STATUS CARD */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Latest BPM & Physiological State
+            </span>
+            <div className="flex items-baseline space-x-3 mt-1">
+              <span className="text-5xl sm:text-6xl font-black text-purple-950">
+                {twinState ? Math.round(twinState.latest_heart_rate) : (measurements.length > 0 ? Math.round(measurements[0].value) : '--')}
+              </span>
+              <span className="text-xl sm:text-2xl font-bold text-slate-600">bpm</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-700 bg-purple-100 px-3 py-1 rounded-full">
+                Context: {twinState?.measurement_context || (measurements.length > 0 ? measurements[0].context : measContext)}
+              </span>
+            </div>
+            <div className="text-xs text-slate-500 font-semibold mt-1.5 flex items-center space-x-1">
+              <Clock className="w-3.5 h-3.5 text-purple-600" />
+              <span>Observation: {formatIST(twinState?.timestamp_latest_observation || (measurements.length > 0 ? measurements[0].timestamp : undefined))}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize border ${
+                twinState?.vital_status === 'normal'
+                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  : twinState?.vital_status === 'elevated' || twinState?.vital_status === 'tachycardia'
+                  ? 'bg-rose-100 text-rose-900 border-rose-300'
+                  : 'bg-amber-100 text-amber-900 border-amber-300'
+              }`}
+            >
+              Status: {twinState?.vital_status || 'normal'}
+            </span>
+
+            <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-200">
+              Twin Version {twinState?.state_version ?? 1}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <span className="text-slate-500 font-semibold">60m Average:</span>
+            <p className="text-sm font-black text-slate-900 mt-0.5">
+              {twinState?.rolling_mean_60m ? `${Math.round(twinState.rolling_mean_60m)} bpm` : '--'}
+            </p>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <span className="text-slate-500 font-semibold">Hourly Trend:</span>
+            <p className="text-sm font-black text-slate-900 mt-0.5">
+              {twinState?.trend_slope_per_hour !== undefined
+                ? `${twinState.trend_slope_per_hour > 0 ? '+' : ''}${twinState.trend_slope_per_hour.toFixed(2)} bpm/hr`
+                : 'Steady'}
+            </p>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <span className="text-slate-500 font-semibold">Data Quality:</span>
+            <p className="text-sm font-black text-slate-900 mt-0.5 capitalize">
+              {twinState?.data_quality_status ? twinState.data_quality_status.replace('_', ' ') : 'Good'}
+            </p>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <span className="text-slate-500 font-semibold">Attestation:</span>
+            <p className="text-sm font-black text-emerald-700 mt-0.5 flex items-center space-x-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>{twinState?.attestation_status || 'Verified'}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* CHRONOLOGICAL HEART RATE EVOLUTION CHART */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-xl font-bold text-slate-900 flex items-center space-x-2">
+              <Activity className="w-5 h-5 text-purple-700" />
+              <span>Heart Rate Evolution Chart ({chartData.length} observations)</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Shaded band indicates normal resting range (60 - 100 bpm). Real-time telemetry dynamically updates upon entry.
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 self-start sm:self-auto">
+            Live Stream View
+          </span>
+        </div>
+
+        {chartData.length > 0 ? (
+          <div className="h-64 w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="time" stroke="#64748b" fontSize={11} tickMargin={6} />
+                <YAxis domain={[40, 160]} stroke="#64748b" fontSize={11} unit=" bpm" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '1rem', color: '#fff' }}
+                  formatter={(val: any) => [`${val} bpm`, 'Heart Rate']}
+                  labelFormatter={(lbl, items) => {
+                    const item = items?.[0]?.payload;
+                    return item ? `${item.date}, ${item.time} IST (${item.context})` : lbl;
+                  }}
+                />
+                <ReferenceArea y1={60} y2={100} fill="#10b981" fillOpacity={0.08} />
+                <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Upper Normal (100 bpm)', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }} />
+                <ReferenceLine y={60} stroke="#3b82f6" strokeDasharray="3 3" label={{ value: 'Lower Normal (60 bpm)', fill: '#3b82f6', fontSize: 10, position: 'insideBottomRight' }} />
+                <Line
+                  type="monotone"
+                  dataKey="bpm"
+                  stroke="#7e22ce"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: '#7e22ce', stroke: '#fff', strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: '#9333ea' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="p-8 text-center text-slate-400 text-sm">
+            No readings recorded yet. Submit your first measurement below to see your trend line.
+          </div>
+        )}
       </div>
 
       {/* Senior-Friendly Quick Add Reading Form */}
@@ -179,6 +331,34 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
             </div>
           </div>
 
+          {/* Context Selector */}
+          <div>
+            <label className="block text-base font-bold text-slate-800 mb-2">
+              Measurement Context / Physical Activity:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { id: 'resting', label: '🌿 Resting / Seated', desc: 'At rest for > 5 min' },
+                { id: 'active', label: '🏃 Mild Activity', desc: 'During or after walking' },
+                { id: 'post_exercise', label: '⚡ Post Exercise', desc: 'Cooling down' },
+              ].map((c) => (
+                <button
+                  type="button"
+                  key={c.id}
+                  onClick={() => setMeasContext(c.id)}
+                  className={`py-2.5 px-3.5 rounded-xl border-2 font-bold text-left transition-all min-h-[48px] ${
+                    measContext === c.id
+                      ? 'bg-purple-100 border-purple-600 text-purple-950'
+                      : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="text-sm">{c.label}</div>
+                  <div className="text-xs text-slate-500 font-normal mt-0.5">{c.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Submit Button */}
           <button
             type="submit"
@@ -220,19 +400,53 @@ export const RecordHistoryView: React.FC<RecordHistoryViewProps> = ({
                     {Math.round(m.value)}{' '}
                     <span className="text-base font-bold text-slate-600">{m.unit}</span>
                   </div>
-                  <div className="text-sm text-slate-500 mt-0.5 flex items-center space-x-1.5">
-                    <Clock className="w-4 h-4" />
-                    <span>{formatDateTime(m.timestamp)}</span>
+                  <div className="text-sm text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className="flex items-center space-x-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{formatDateTime(m.timestamp)}</span>
+                    </span>
                     <span>•</span>
                     <span className="capitalize">{m.source.replace('_', ' ')}</span>
+                    {m.context && (
+                      <>
+                        <span>•</span>
+                        <span className="bg-purple-100 text-purple-900 text-xs px-2 py-0.5 rounded-full font-semibold border border-purple-200 capitalize">
+                          {m.context.replace('_', ' ')}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Simple Trust Badge */}
-              <div className="self-start sm:self-auto flex items-center space-x-1.5 text-sm font-bold text-emerald-800 bg-emerald-100 px-3.5 py-1.5 rounded-full border border-emerald-300">
-                <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                <span>Verified on Blockchain</span>
+              {/* Dynamic Attestation Status Badge */}
+              <div className="self-start sm:self-auto flex items-center space-x-1.5 text-xs font-bold">
+                {twinState?.attestation_status === 'VERIFIED' ? (
+                  <span className="text-emerald-900 bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-full flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                    <span>Verified On-Chain (Block #{twinState.on_chain_block_number || '1'})</span>
+                  </span>
+                ) : twinState?.attestation_status === 'SIMULATED' ? (
+                  <span className="text-blue-900 bg-blue-100 border border-blue-300 px-3 py-1.5 rounded-full flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-blue-700" />
+                    <span>Local Py-EVM Verified</span>
+                  </span>
+                ) : twinState?.attestation_status === 'PENDING' ? (
+                  <span className="text-amber-900 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full flex items-center space-x-1.5">
+                    <Clock className="w-4 h-4 text-amber-700 animate-spin" />
+                    <span>Attestation Pending</span>
+                  </span>
+                ) : twinState?.attestation_status === 'OFFLINE' ? (
+                  <span className="text-slate-800 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-full flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-slate-500" />
+                    <span>Offline Cryptographic Hash</span>
+                  </span>
+                ) : (
+                  <span className="text-slate-700 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-full flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-slate-400" />
+                    <span>Local Record</span>
+                  </span>
+                )}
               </div>
             </div>
           ))}

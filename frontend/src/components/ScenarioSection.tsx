@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { TwinState, ScenarioComparison } from '../types';
 import { api } from '../services/api';
+import { formatISTTimeOnly } from '../utils/dateUtils';
 
 interface ScenarioSectionProps {
   patientId: string;
@@ -77,10 +78,7 @@ export const ScenarioSection: React.FC<ScenarioSectionProps> = ({
   const chartData = comparison
     ? comparison.scenario_a.simulated_trajectory.map((ptA, idx) => {
         const ptB = comparison.scenario_b.simulated_trajectory[idx];
-        const timeLabel = new Date(ptA.timestamp).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        const timeLabel = formatISTTimeOnly(ptA.timestamp, false);
         return {
           time: timeLabel,
           scenario_a: ptA.simulated_value,

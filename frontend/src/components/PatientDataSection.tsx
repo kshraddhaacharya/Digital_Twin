@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Measurement } from '../types';
 import { api } from '../services/api';
+import { formatIST } from '../utils/dateUtils';
 
 interface PatientDataSectionProps {
   patientId: string;
@@ -245,8 +246,8 @@ export const PatientDataSection: React.FC<PatientDataSectionProps> = ({
               {filteredMeasurements.slice(0, 100).map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2.5 font-mono text-slate-400">#{m.id}</td>
-                  <td className="px-4 py-2.5 text-slate-700 font-mono">
-                    {new Date(m.timestamp).toISOString().replace('T', ' ').slice(0, 19)}
+                  <td className="px-4 py-2.5 text-slate-700 font-mono text-xs">
+                    {formatIST(m.timestamp)}
                   </td>
                   <td className="px-4 py-2.5">
                     <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded font-mono text-[11px]">

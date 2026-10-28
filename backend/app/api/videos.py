@@ -9,6 +9,7 @@ from backend.app.database.connection import get_db
 from backend.app.models.user import User
 from backend.app.models.video import UserVideo
 from backend.app.services.auth import get_current_user
+from backend.app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/videos", tags=["Video Upload & Library"])
 
@@ -75,7 +76,7 @@ async def upload_user_video(
             "file_type": video.file_type,
             "file_size_bytes": video.file_size_bytes,
             "description": video.description,
-            "created_at": video.created_at.isoformat()
+            "created_at": to_utc_iso(video.created_at)
         }
     }
 
@@ -100,7 +101,7 @@ def list_user_videos(
             "file_size_bytes": v.file_size_bytes,
             "description": v.description,
             "stream_url": f"/api/videos/{v.id}/stream",
-            "created_at": v.created_at.isoformat()
+            "created_at": to_utc_iso(v.created_at)
         }
         for v in videos
     ]

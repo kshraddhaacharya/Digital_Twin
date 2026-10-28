@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import { TwinState, Forecast, Measurement, ScenarioComparison } from '../types';
 import { api } from '../services/api';
+import { formatISTTimeOnly, formatIST } from '../utils/dateUtils';
 
 interface FutureOutlookViewProps {
   patientId: string;
@@ -57,8 +58,8 @@ export const FutureOutlookView: React.FC<FutureOutlookViewProps> = ({
   const loadScenarioSimulation = async (paramVal: number) => {
     try {
       const res = await api.simulateScenarios(patientId, {
-        horizon_minutes: 360,
-        parameter_name: 'trend_damping_pct',
+        horizon_minutes: 120,
+        parameter_name: 'activity_exertion_factor',
         parameter_value: paramVal,
         parameter_unit: '%',
       });
@@ -77,7 +78,7 @@ export const FutureOutlookView: React.FC<FutureOutlookViewProps> = ({
     setLoadingForecast(true);
     try {
       await api.generateForecast(patientId, {
-        horizon_minutes: 360,
+        horizon_minutes: 120,
         model_type: 'autoregressive_trend',
       });
       await loadScenarioSimulation(selectedHypothetical);
@@ -95,7 +96,7 @@ export const FutureOutlookView: React.FC<FutureOutlookViewProps> = ({
     .slice(0, 16)
     .reverse()
     .map((m) => ({
-      time: new Date(m.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+      time: formatISTTimeOnly(m.timestamp, false),
       actual: m.value,
       forecastA: null as number | null,
       forecastB: null as number | null,
@@ -105,7 +106,7 @@ export const FutureOutlookView: React.FC<FutureOutlookViewProps> = ({
     ? comparison.scenario_a.simulated_trajectory.map((ptA, idx) => {
         const ptB = comparison.scenario_b.simulated_trajectory[idx];
         return {
-          time: new Date(ptA.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+          time: formatISTTimeOnly(ptA.timestamp, false),
           actual: null as number | null,
           forecastA: ptA.simulated_value,
           forecastB: ptB ? ptB.simulated_value : null,
@@ -143,17 +144,21 @@ export const FutureOutlookView: React.FC<FutureOutlookViewProps> = ({
       {/* Page Title & Plain-English Intro */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-sm">
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-          What Might Happen Next? (Future Outlook)
+          Digital Twin Simulation & Counterfactual Outcomes
         </h2>
         <p className="text-lg text-slate-700 font-medium mt-2 leading-relaxed">
-          Your digital twin analyzes your recent heart rate patterns and estimates what might happen over the next <strong>6 hours</strong>.
+          Your digital twin anchors your current physiological state and simulates possible short-term outcomes over the next <strong>2 hours (120 minutes)</strong> under different conditions.
         </p>
 
-        {/* State Anchor in simple language */}
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+        {/* State Anchor & Data Quality in simple language */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
           <span>Current Modeled State: <strong>Version {twinState ? twinState.state_version : '1'}</strong></span>
           <span>•</span>
-          <span>Latest Reading Used: <strong>{twinState ? `${twinState.latest_heart_rate.toFixed(1)} bpm` : '--'}</strong></span>
+          <span>Model: <strong>{twinState?.model_version || 'autoregressive_trend_v1.0'}</strong></span>
+          <span>•</span>
+          <span>Data Quality: <strong className="capitalize">{twinState?.data_quality_status || 'Good'}</strong></span>
+          <span>•</span>
+          <span>Latest Reading: <strong>{twinState ? `${twinState.latest_heart_rate.toFixed(1)} bpm` : '--'}</strong></span>
         </div>
       </div>
 
@@ -186,10 +191,10 @@ export const FutureOutlookView: React.FC<FutureOutlookViewProps> = ({
         <div className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="text-xl font-bold text-slate-900">
-              Projected Heart Rate Over Next 6 Hours
+              Projected Heart Rate Over Next 2 Hours (120 min)
             </h3>
             <p className="text-base text-slate-600 font-medium">
-              Blue dots: Your measured readings • Purple line: Projected path • Orange line: Hypothetical path
+              Blue dots: Observed readings • Purple line: Baseline path (Scenario A) • Orange line: Counterfactual path (Scenario B)
             </p>
           </div>
         </div>
@@ -333,8 +338,11 @@ export const FutureOutlookView: React.FC<FutureOutlookViewProps> = ({
         {showTechnicalDetails && (
           <div className="mt-4 pt-4 border-t border-slate-200 text-sm font-mono space-y-2 text-slate-700">
             <div><strong>Active Twin State Version:</strong> Version {twinState?.state_version ?? 1}</div>
+            <div><strong>Model Version:</strong> {twinState?.model_version || 'autoregressive_trend_v1.0'}</div>
+            <div><strong>Data Quality Status:</strong> {twinState?.data_quality_status || 'good'}</div>
             <div><strong>Forecasting Algorithm:</strong> Autoregressive Trend Extrapolation (AR(2) + 24-hr Diurnal Harmonic)</div>
-            <div><strong>Forecast Horizon:</strong> 360 minutes (6 hours, 15-minute steps)</div>
+            <div><strong>Forecast Horizon:</strong> 120 minutes (2 hours, 15-minute steps) [Bounded for autonomic realism]</div>
+            <div><strong>Hypothetical Kinetics:</strong> Asymptotic relaxation / exertion curve (k = 0.03 min⁻¹)</div>
             <div><strong>Blockchain Smart Contract:</strong> {twinState?.contract_address || '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b'}</div>
             <div><strong>On-Chain State Root:</strong> 0x{twinState?.state_hash_sha256 || 'Verified'}</div>
           </div>

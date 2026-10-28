@@ -8,12 +8,13 @@ from backend.app.models.patient import Patient
 from backend.app.models.twin_state import TwinState
 from backend.app.models.forecast import Forecast
 from backend.app.web3.service import Web3Service
+from backend.app.services.clinical_metrics import classify_vital_status
 
 
 class DigitalTwinEngine:
     """
-    Core Digital Twin Engine for maintaining, updating, and versioning a patient's
-    dynamic physiological modeled state.
+    Core Digital Twin Engine maintaining, updating, and versioning a patient's
+    dynamic physiological modeled state with transparent provenance and Web3 anchoring.
     """
 
     @staticmethod
@@ -37,13 +38,21 @@ class DigitalTwinEngine:
         latest_ts = latest_m.timestamp
         if latest_ts.tzinfo is None:
             latest_ts = latest_ts.replace(tzinfo=timezone.utc)
+        else:
+            latest_ts = latest_ts.astimezone(timezone.utc)
             
         now_utc = current_time or datetime.now(timezone.utc)
         freshness_seconds = max(0.0, (now_utc - latest_ts).total_seconds())
 
+        # Determine context of latest observation
+        latest_context = getattr(latest_m, "context", "resting") or "resting"
+
         # Filter observations from the last 60 minutes relative to the latest observation
         cutoff_60m = latest_ts - timedelta(minutes=60)
-        recent_60m = [m for m in sorted_m if (m.timestamp.replace(tzinfo=timezone.utc) if m.timestamp.tzinfo is None else m.timestamp) >= cutoff_60m]
+        recent_60m = [
+            m for m in sorted_m
+            if (m.timestamp.replace(tzinfo=timezone.utc) if m.timestamp.tzinfo is None else m.timestamp) >= cutoff_60m
+        ]
         
         # If fewer than 3 observations in the 60m window, use last 4 observations as fallback
         if len(recent_60m) < 3 and len(sorted_m) >= 3:
@@ -57,7 +66,10 @@ class DigitalTwinEngine:
 
         # Calculate slope (rate of change per hour) over recent window (up to 3 hours)
         cutoff_trend = latest_ts - timedelta(hours=3)
-        trend_obs = [m for m in sorted_m if (m.timestamp.replace(tzinfo=timezone.utc) if m.timestamp.tzinfo is None else m.timestamp) >= cutoff_trend]
+        trend_obs = [
+            m for m in sorted_m
+            if (m.timestamp.replace(tzinfo=timezone.utc) if m.timestamp.tzinfo is None else m.timestamp) >= cutoff_trend
+        ]
         if len(trend_obs) < 2:
             trend_obs = sorted_m[-3:] if len(sorted_m) >= 2 else sorted_m
 
@@ -70,7 +82,6 @@ class DigitalTwinEngine:
             ])
             vals = np.array([float(m.value) for m in trend_obs])
             
-            # Simple linear regression: slope = Cov(t, y) / Var(t)
             time_span = time_hours[-1] - time_hours[0]
             if time_span > 0.01:
                 p = np.polyfit(time_hours, vals, deg=1)
@@ -83,18 +94,29 @@ class DigitalTwinEngine:
         hour_of_day = latest_ts.hour + latest_ts.minute / 60.0
         circadian_offset = float(6.0 * np.sin(2 * np.pi * (hour_of_day - 10.0) / 24.0))
 
-        # Vital clinical status classification (for display and alerting)
-        if latest_val > 100.0:
-            vital_status = "tachycardia"
-        elif latest_val < 60.0:
-            vital_status = "bradycardia"
-        elif latest_val > 90.0:
-            vital_status = "elevated"
-        else:
-            vital_status = "normal"
+        # Context-aware clinical status classification
+        classification = classify_vital_status(latest_val, context=latest_context)
+        vital_status = classification["status"]
+
+        # Assess data quality status
+        data_quality_status = "good"
+        if len(sorted_m) < 6:
+            data_quality_status = "insufficient_history"
+        elif freshness_seconds > 86400 * 2:  # > 48 hours
+            data_quality_status = "stale_data"
+        elif len(sorted_m) >= 4:
+            ts_list = [
+                (m.timestamp.replace(tzinfo=timezone.utc) if m.timestamp.tzinfo is None else m.timestamp)
+                for m in sorted_m
+            ]
+            diffs = [(ts_list[i] - ts_list[i - 1]).total_seconds() / 60.0 for i in range(1, len(ts_list))]
+            med_diff = float(np.median(diffs))
+            if med_diff > 0 and max(diffs) > (med_diff * 4.0):
+                data_quality_status = "irregular_intervals"
 
         return {
             "latest_heart_rate": round(latest_val, 2),
+            "measurement_context": latest_context,
             "timestamp_latest_observation": latest_ts,
             "last_processed_measurement_id": latest_m.id,
             "rolling_mean_60m": round(rolling_mean, 2),
@@ -103,14 +125,16 @@ class DigitalTwinEngine:
             "circadian_phase_estimate": round(circadian_offset, 2),
             "physiological_variability_index": round(variability_idx, 2),
             "vital_status": vital_status,
+            "data_quality_status": data_quality_status,
             "data_freshness_seconds": round(freshness_seconds, 1),
+            "model_version": "1.0.0"
         }
 
     @classmethod
     def initialize_twin(cls, patient_id: str, db: Session) -> TwinState:
         """
         Initializes or resets the digital twin from stored historical observations.
-        Creates TwinState Version 1.
+        Creates TwinState Version 1 and anchors on-chain.
         """
         patient = db.query(Patient).filter(Patient.id == patient_id).first()
         if not patient:
@@ -140,22 +164,38 @@ class DigitalTwinEngine:
                 timestamp=features["timestamp_latest_observation"],
                 latest_hr=features["latest_heart_rate"],
                 rolling_mean=features["rolling_mean_60m"],
-                features=features
+                features=features,
+                model_version=features["model_version"],
+                data_quality_status=features["data_quality_status"],
+                previous_state_hash=None
             )
             web3_meta = {
-                "on_chain_tx_hash": att["on_chain_tx_hash"],
-                "on_chain_block_number": att["on_chain_block_number"],
-                "state_hash_sha256": att["state_hash_sha256"],
-                "ipfs_cid": att["ipfs_cid"],
-                "contract_address": att["contract_address"],
+                "attestation_status": att.get("attestation_status", "PENDING"),
+                "on_chain_tx_hash": att.get("on_chain_tx_hash"),
+                "on_chain_block_number": att.get("on_chain_block_number"),
+                "state_hash_sha256": att.get("state_hash_sha256"),
+                "ipfs_cid": att.get("ipfs_cid"),
+                "contract_address": att.get("contract_address"),
             }
         except Exception as e:
             print(f"[Web3] State attestation skipped: {e}")
+            web3_meta = {
+                "attestation_status": "UNAVAILABLE",
+                "state_hash_sha256": Web3Service.calculate_state_hash(
+                    patient_id=patient_id,
+                    version=1,
+                    timestamp=features["timestamp_latest_observation"],
+                    features=features,
+                    model_version=features["model_version"],
+                    data_quality_status=features["data_quality_status"]
+                )
+            }
 
         new_state = TwinState(
             patient_id=patient_id,
             state_version=1,
             is_active_version=True,
+            previous_state_hash=None,
             **features,
             **web3_meta
         )
@@ -190,6 +230,7 @@ class DigitalTwinEngine:
         ).first()
 
         next_version = (current_state.state_version + 1) if current_state else 1
+        prev_hash = current_state.state_hash_sha256 if current_state else None
 
         # Query all heart rate measurements to compute fresh features
         hr_measurements = db.query(Measurement).filter(
@@ -209,17 +250,33 @@ class DigitalTwinEngine:
                 timestamp=features["timestamp_latest_observation"],
                 latest_hr=features["latest_heart_rate"],
                 rolling_mean=features["rolling_mean_60m"],
-                features=features
+                features=features,
+                model_version=features["model_version"],
+                data_quality_status=features["data_quality_status"],
+                previous_state_hash=prev_hash
             )
             web3_meta = {
-                "on_chain_tx_hash": att["on_chain_tx_hash"],
-                "on_chain_block_number": att["on_chain_block_number"],
-                "state_hash_sha256": att["state_hash_sha256"],
-                "ipfs_cid": att["ipfs_cid"],
-                "contract_address": att["contract_address"],
+                "attestation_status": att.get("attestation_status", "PENDING"),
+                "on_chain_tx_hash": att.get("on_chain_tx_hash"),
+                "on_chain_block_number": att.get("on_chain_block_number"),
+                "state_hash_sha256": att.get("state_hash_sha256"),
+                "ipfs_cid": att.get("ipfs_cid"),
+                "contract_address": att.get("contract_address"),
             }
         except Exception as e:
             print(f"[Web3] State attestation skipped: {e}")
+            web3_meta = {
+                "attestation_status": "UNAVAILABLE",
+                "state_hash_sha256": Web3Service.calculate_state_hash(
+                    patient_id=patient_id,
+                    version=next_version,
+                    timestamp=features["timestamp_latest_observation"],
+                    features=features,
+                    model_version=features["model_version"],
+                    data_quality_status=features["data_quality_status"],
+                    previous_state_hash=prev_hash
+                )
+            }
 
         # Deactivate previous active states
         db.query(TwinState).filter(
@@ -231,6 +288,7 @@ class DigitalTwinEngine:
             patient_id=patient_id,
             state_version=next_version,
             is_active_version=True,
+            previous_state_hash=prev_hash,
             **features,
             **web3_meta
         )

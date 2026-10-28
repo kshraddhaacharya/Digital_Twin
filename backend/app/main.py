@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.database.connection import engine, Base, SessionLocal
+from backend.app.database.migration import run_migrations
 from backend.app.models import *  # noqa: F401, F403
 from backend.app.api import api_router
 from backend.app.data.synthetic import generate_synthetic_patient_data
@@ -39,6 +40,9 @@ def seed_default_demo_patient():
                 age=pt_data["age"],
                 gender=pt_data["gender"],
                 baseline_heart_rate=pt_data["baseline_heart_rate"],
+                height_cm=165.0,
+                weight_kg=68.0,
+                profile_version=1,
                 medical_notes=pt_data["medical_notes"],
                 is_synthetic=True
             )
@@ -54,6 +58,8 @@ def seed_default_demo_patient():
                     value=m["value"],
                     unit=m["unit"],
                     source=m["source"],
+                    context="resting" if m.get("value", 72) < 95 else "active",
+                    data_quality="valid",
                     is_late_arrival=False
                 ))
             db.add_all(meas_objs)
@@ -71,6 +77,8 @@ def seed_default_demo_patient():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Run safe database schema migrations
+    run_migrations()
     # Initialize all database tables
     Base.metadata.create_all(bind=engine)
     seed_default_demo_patient()
@@ -78,32 +86,42 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Hackloop 2026 — Digital Twin of a Patient API",
+    title="Sovereign Health Twin API",
     description=(
-        "Core Digital Twin Engine for patient physiological state tracking, "
-        "short-term autoregressive forecasting, and counterfactual scenario simulation.\n\n"
+        "Core Digital Twin Engine for continuous patient physiological state modeling, "
+        "short-term autoregressive forecasting, counterfactual scenario simulation, "
+        "and Web3 decentralized record integrity verification.\n\n"
         "**EDUCATIONAL & RESEARCH PROTOTYPE ONLY**: Not for medical diagnosis or clinical use."
     ),
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan
 )
 
-# Configure CORS for local development and Docker deployment
+# Configure CORS narrowly for development and local testing
 allowed_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
-    "*"  # research prototype permissive default
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+
+# Global safe error handler to avoid leaking internal tracebacks
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    # Log internally
+    print(f"[ERROR] Internal server error on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please verify your inputs and try again."}
+    )
 
 # Register API routes
 app.include_router(api_router)
@@ -112,7 +130,7 @@ app.include_router(api_router)
 @app.get("/")
 def root():
     return {
-        "project": "Hackloop 2026 — Digital Twin of a Patient",
+        "project": "Sovereign Health Twin",
         "docs_url": "/docs",
         "api_prefix": "/api",
         "health": "/api/health"

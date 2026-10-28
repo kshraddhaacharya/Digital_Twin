@@ -15,12 +15,13 @@ class User(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    # Health & Profile fields (optional or configurable)
+    # Health & Profile fields
     age = Column(Integer, nullable=True)
     date_of_birth = Column(String(32), nullable=True)
     gender = Column(String(32), nullable=True, default="Prefer not to say")
     height = Column(Float, nullable=True)  # in cm
     body_weight = Column(Float, nullable=True)  # in kg
+    profile_version = Column(Integer, nullable=False, default=1)
     existing_conditions = Column(Text, nullable=True)
     allergies = Column(Text, nullable=True)
     medications = Column(Text, nullable=True)

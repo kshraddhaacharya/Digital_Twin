@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, Literal
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict, field_serializer
+from backend.app.utils.datetime_utils import to_utc_iso
 
 
 VALID_UNITS = {
@@ -17,6 +18,8 @@ VALUE_BOUNDS = {
     "body_temperature": (30.0, 45.0, "Body temperature must be between 30.0°C and 45.0°C (or 86-113°F)"),
 }
 
+VALID_CONTEXTS = {"resting", "active", "post_exercise", "post_prandial", "clinical", "unspecified"}
+
 
 class MeasurementCreate(BaseModel):
     timestamp: datetime = Field(..., description="Measurement observation timestamp in ISO 8601 format (UTC)")
@@ -24,6 +27,7 @@ class MeasurementCreate(BaseModel):
     value: float = Field(..., description="Observed numeric value")
     unit: str = Field(..., description="Measurement unit, e.g., 'bpm'")
     source: Optional[str] = Field("manual_entry", description="Source of measurement, e.g., bedside_monitor, csv_upload")
+    context: Optional[str] = Field("resting", description="Measurement context: 'resting', 'active', 'post_exercise', 'post_prandial', etc.")
 
     @field_validator("measurement_type")
     @classmethod
@@ -47,6 +51,16 @@ class MeasurementCreate(BaseModel):
                 )
         return unit_clean
 
+    @field_validator("context")
+    @classmethod
+    def validate_context(cls, v: Optional[str]) -> str:
+        if not v:
+            return "resting"
+        c = v.strip().lower()
+        if c not in VALID_CONTEXTS:
+            return "resting"
+        return c
+
     @field_validator("value")
     @classmethod
     def validate_bounds(cls, v: float, info) -> float:
@@ -54,7 +68,6 @@ class MeasurementCreate(BaseModel):
         unit = info.data.get("unit", "")
         if m_type and m_type in VALUE_BOUNDS:
             min_v, max_v, msg = VALUE_BOUNDS[m_type]
-            # Handle Fahrenheit temperature bounds conversion if specified
             if m_type == "body_temperature" and "F" in unit.upper():
                 if not (86.0 <= v <= 113.0):
                     raise ValueError(f"Body temperature in °F must be between 86.0°F and 113.0°F. Received: {v}")
@@ -74,8 +87,14 @@ class MeasurementResponse(BaseModel):
     value: float
     unit: str
     source: str
+    context: str = "resting"
+    data_quality: str = "valid"
     is_late_arrival: bool
     created_at: datetime
+
+    @field_serializer("timestamp", "created_at", when_used="json")
+    def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
+        return to_utc_iso(dt)
 
 
 class MeasurementBatchUploadResponse(BaseModel):

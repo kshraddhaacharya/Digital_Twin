@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { HealthCondition, ConditionLog, DiseaseAnalytics } from '../types';
 import { api } from '../services/api';
+import { formatISTDateOnly, formatIST } from '../utils/dateUtils';
 
 interface DiseaseTrackerViewProps {
   conditions: HealthCondition[];
@@ -127,7 +128,7 @@ export const DiseaseTrackerView: React.FC<DiseaseTrackerViewProps> = ({
 
   // Prepare chart data from logs
   const chartData = logs.map((l) => ({
-    date: l.log_date,
+    date: formatISTDateOnly(l.log_date),
     value: l.metric_value,
     metric: `${l.metric_name} (${l.metric_unit})`,
     condition: l.condition_name
@@ -439,7 +440,7 @@ export const DiseaseTrackerView: React.FC<DiseaseTrackerViewProps> = ({
                     {c.severity}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">Diagnosed: {c.diagnosed_date || 'Ongoing'}</p>
+                <p className="text-xs text-slate-500">Diagnosed: {c.diagnosed_date ? formatISTDateOnly(c.diagnosed_date) : 'Ongoing'}</p>
                 <p className="text-xs font-semibold text-slate-700">{c.total_logs || 0} measurements recorded</p>
               </div>
             ))}
@@ -463,7 +464,7 @@ export const DiseaseTrackerView: React.FC<DiseaseTrackerViewProps> = ({
                   <div className="flex items-center space-x-2">
                     <span className="font-bold text-slate-900 text-sm">{l.metric_name}:</span>
                     <span className="font-black text-purple-700 text-sm">{l.metric_value} {l.metric_unit}</span>
-                    <span className="text-xs text-slate-500 font-semibold">• {l.log_date}</span>
+                    <span className="text-xs text-slate-500 font-semibold">• {formatISTDateOnly(l.log_date)} (Recorded: {formatIST(l.created_at)})</span>
                   </div>
                   {l.symptoms && (
                     <p className="text-xs text-slate-600 mt-0.5">Symptoms: {l.symptoms}</p>

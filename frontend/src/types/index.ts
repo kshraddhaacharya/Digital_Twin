@@ -8,6 +8,9 @@ export interface User {
   gender?: string;
   height?: number; // cm
   body_weight?: number; // kg
+  profile_version?: number;
+  calculated_bmi?: number;
+  bmi_category?: string;
   existing_conditions?: string;
   allergies?: string;
   medications?: string;
@@ -29,14 +32,23 @@ export interface Patient {
   age: number;
   gender: string;
   baseline_heart_rate: number;
+  height_cm?: number;
+  weight_kg?: number;
+  profile_version?: number;
+  calculated_bmi?: number;
+  bmi_category?: string;
   medical_notes?: string;
   is_synthetic: boolean;
   created_at: string;
   total_measurements?: number;
   active_twin_state_version?: number;
   latest_heart_rate?: number;
+  measurement_context?: string;
   latest_observation_time?: string;
   vital_status?: string;
+  data_quality_status?: string;
+  attestation_status?: string;
+  on_chain_tx_hash?: string;
 }
 
 export interface Measurement {
@@ -47,6 +59,8 @@ export interface Measurement {
   value: number;
   unit: string;
   source: string;
+  context?: string;
+  data_quality?: string;
   is_late_arrival: boolean;
   created_at: string;
 }
@@ -58,12 +72,18 @@ export interface TwinState {
   timestamp_latest_observation: string;
   last_processed_measurement_id?: number;
   latest_heart_rate: number;
+  measurement_context?: string;
   rolling_mean_60m?: number;
   rolling_std_60m?: number;
   trend_slope_per_hour?: number;
   circadian_phase_estimate?: number;
   physiological_variability_index?: number;
-  vital_status: 'normal' | 'elevated' | 'tachycardia' | 'bradycardia';
+  vital_status: 'normal' | 'elevated' | 'tachycardia' | 'bradycardia' | 'severe_tachycardia' | 'severe_bradycardia' | 'peak_exertion' | 'exercise_response' | 'active_moderate';
+  model_version?: string;
+  data_quality_status?: string;
+  attestation_status?: string;
+  previous_state_hash?: string;
+  latest_forecast_time?: string;
   data_freshness_seconds: number;
   is_active_version: boolean;
   on_chain_tx_hash?: string;
@@ -76,25 +96,30 @@ export interface TwinState {
 
 export interface Web3NetworkStatus {
   is_connected: boolean;
-  chain_id: number;
+  chain_id?: number;
   network_name: string;
-  contract_address: string;
-  active_wallet_address: string;
+  contract_address?: string;
+  active_wallet_address?: string;
   wallet_balance_eth: number;
-  latest_block_number: number;
+  latest_block_number?: number;
+  network_mode?: string;
+  error?: string;
 }
 
 export interface Web3VerificationResult {
   is_valid: boolean;
+  verification_status: string; // 'VERIFIED' | 'MISMATCH' | 'PENDING' | 'UNAVAILABLE' | 'NOT_ANCHORED' | 'FAILED'
   patient_id: string;
   state_version: number;
   candidate_hash: string;
-  on_chain_root: string;
-  ipfs_cid: string;
-  block_number: number;
+  on_chain_root?: string;
+  ipfs_cid?: string;
+  block_number?: number;
   on_chain_tx_hash?: string;
-  contract_address: string;
+  contract_address?: string;
   timestamp_observation?: string;
+  reason?: string;
+  network_mode?: string;
 }
 
 export interface ForecastPoint {
@@ -180,6 +205,8 @@ export interface Biomarker {
   unit: string;
   reference_range: string;
   status: 'normal' | 'elevated' | 'low';
+  confidence?: string;
+  requires_confirmation?: boolean;
 }
 
 export interface SearchMatch {
@@ -190,14 +217,18 @@ export interface SearchMatch {
 
 export interface MedicalReport {
   id: number;
+  patient_id?: string;
   title: string;
   report_date: string;
   file_name: string;
   file_type: string;
   file_size_bytes: number;
   description?: string;
+  summary?: string;
   extracted_text?: string;
+  is_scanned?: boolean;
   biomarkers: Biomarker[];
+  requires_review?: boolean;
   search_matches?: {
     query: string;
     matches_found: number;

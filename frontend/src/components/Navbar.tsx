@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Heart,
   RefreshCw,
@@ -11,7 +11,11 @@ import {
   Video,
   Activity,
   Calendar,
-  Home
+  Home,
+  Cpu,
+  ChevronDown,
+  Layers,
+  Menu
 } from 'lucide-react';
 import { Patient, User } from '../types';
 
@@ -42,20 +46,53 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onGoHome,
 }) => {
-  // Navigation tabs based on user context
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const isFemale = user?.gender === 'Female';
 
+  // Primary 4 Top-Level Tabs
   const primaryTabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'my-health', label: '1. My Health', icon: Heart },
-    { id: 'future-outlook', label: '2. Future Outlook', icon: Activity },
-    { id: 'record-history', label: '3. Record History', icon: RefreshCw },
-    { id: 'reports', label: 'Medical Reports', icon: FileText },
-    { id: 'videos', label: 'Videos', icon: Video },
-    { id: 'disease-tracker', label: 'Disease Tracker', icon: Activity },
-    ...(isFemale ? [{ id: 'cycle-tracker', label: 'Period Tracker', icon: Calendar }] : []),
-    { id: 'profile', label: 'My Profile', icon: UserCheck },
+    { id: 'digital-twin', label: '2. Digital Twin', icon: Cpu },
+    { id: 'records', label: '3. Health Records', icon: FileText },
+    { id: 'integrity', label: '4. Data Integrity', icon: ShieldCheck },
   ];
+
+  // Secondary views under "More"
+  const moreTabs = [
+    { id: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
+    { id: 'videos', label: 'Personal Videos', icon: Video },
+    { id: 'disease-tracker', label: 'Disease Tracker', icon: Activity },
+    { id: 'cycle-tracker', label: 'Period Tracker', icon: Calendar },
+    { id: 'profile', label: 'My Health Profile', icon: UserCheck },
+  ];
+
+  // Close dropdown on outside click or Escape key
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const handleTabClick = (tabId: string) => {
+    setActiveTab(tabId);
+    setShowMoreMenu(false);
+  };
+
+  const isMoreActive = moreTabs.some((t) => t.id === activeTab);
 
   return (
     <header className="bg-white border-b-2 border-slate-200 sticky top-0 z-30 shadow-sm">
@@ -85,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Logo & Simple Title */}
           <div
             className="flex items-center space-x-3 cursor-pointer"
-            onClick={onGoHome ? onGoHome : () => setActiveTab('dashboard')}
+            onClick={onGoHome ? onGoHome : () => handleTabClick('my-health')}
           >
             <div className="bg-purple-700 text-white p-2.5 rounded-2xl shadow-sm flex items-center justify-center">
               <Heart className="w-6 h-6 fill-white" />
@@ -166,16 +203,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs Bar */}
-        <nav className="flex space-x-1 overflow-x-auto pt-3 pb-1 border-t border-slate-100 mt-2.5">
+        {/* Navigation Tabs Bar: 4 Primary Destinations + More Dropdown */}
+        <nav className="flex items-center space-x-1 pt-3 pb-1 border-t border-slate-100 mt-2.5 flex-wrap sm:flex-nowrap gap-y-1">
           {primaryTabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+            // Also match legacy alias IDs
+            const isActive =
+              activeTab === tab.id ||
+              (tab.id === 'digital-twin' && activeTab === 'future-outlook') ||
+              (tab.id === 'records' && (activeTab === 'record-history' || activeTab === 'reports')) ||
+              (tab.id === 'integrity' && activeTab === 'web3');
+
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap min-h-[40px] ${
+                onClick={() => handleTabClick(tab.id)}
+                className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap min-h-[40px] ${
                   isActive
                     ? 'bg-purple-700 text-white shadow-sm'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -186,6 +229,48 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             );
           })}
+
+          {/* More Menu Dropdown */}
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap min-h-[40px] ${
+                isMoreActive
+                  ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Menu className="w-4 h-4 text-slate-500" />
+              <span>More Modules</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMoreMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showMoreMenu && (
+              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border-2 border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3.5 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  Specialized Modules
+                </div>
+                {moreTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => handleTabClick(tab.id)}
+                      className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-sm font-semibold transition text-left ${
+                        isActive
+                          ? 'bg-purple-50 text-purple-900 font-bold'
+                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-purple-700' : 'text-slate-400'}`} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </nav>
       </div>
     </header>

@@ -14,6 +14,8 @@ class Measurement(Base):
     value = Column(Float, nullable=False)
     unit = Column(String(32), nullable=False)  # e.g., 'bpm', 'mmHg'
     source = Column(String(64), nullable=False, default="manual")  # e.g., 'synthetic', 'csv_upload', 'manual'
+    context = Column(String(32), nullable=False, default="resting")  # 'resting', 'active', 'post_exercise', 'post_prandial', 'clinical'
+    data_quality = Column(String(32), nullable=False, default="valid")  # 'valid', 'outlier', 'interpolated', 'suspect'
     is_late_arrival = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

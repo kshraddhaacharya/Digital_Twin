@@ -2,6 +2,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 import numpy as np
+from backend.app.utils.datetime_utils import to_utc_iso
 
 
 def generate_synthetic_patient_data(
@@ -61,7 +62,7 @@ def generate_synthetic_patient_data(
         
         measurements.append({
             "patient_id": patient_id,
-            "timestamp": t.isoformat(),
+            "timestamp": to_utc_iso(t),
             "measurement_type": "heart_rate",
             "value": hr_value,
             "unit": "bpm",
@@ -76,7 +77,7 @@ def generate_synthetic_patient_data(
             
             measurements.append({
                 "patient_id": patient_id,
-                "timestamp": t.isoformat(),
+                "timestamp": to_utc_iso(t),
                 "measurement_type": "systolic_bp",
                 "value": sys_bp,
                 "unit": "mmHg",
@@ -85,7 +86,7 @@ def generate_synthetic_patient_data(
             })
             measurements.append({
                 "patient_id": patient_id,
-                "timestamp": t.isoformat(),
+                "timestamp": to_utc_iso(t),
                 "measurement_type": "diastolic_bp",
                 "value": dia_bp,
                 "unit": "mmHg",

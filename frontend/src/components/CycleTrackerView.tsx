@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CycleSummary, CycleLog } from '../types';
 import { api } from '../services/api';
+import { formatISTDateOnly, formatIST } from '../utils/dateUtils';
 
 interface CycleTrackerViewProps {
   summary: CycleSummary | null;
@@ -131,10 +132,10 @@ export const CycleTrackerView: React.FC<CycleTrackerViewProps> = ({
               <span className="text-base font-bold text-slate-500">days away</span>
             </div>
             <p className="text-sm font-semibold text-slate-700">
-              Expected on: <span className="text-pink-600 font-bold">{summary.predicted_next_period}</span>
+              Expected on: <span className="text-pink-600 font-bold">{formatISTDateOnly(summary.predicted_next_period)}</span>
             </p>
             <p className="text-xs text-slate-500">
-              Fertile Window: {summary.fertile_window?.start} to {summary.fertile_window?.end}
+              Fertile Window: {formatISTDateOnly(summary.fertile_window?.start)} to {formatISTDateOnly(summary.fertile_window?.end)}
             </p>
           </div>
 
@@ -264,14 +265,15 @@ export const CycleTrackerView: React.FC<CycleTrackerViewProps> = ({
               >
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-base text-slate-900">Period Start: {item.start_date}</span>
+                    <span className="font-bold text-base text-slate-900">Period Start: {formatISTDateOnly(item.start_date)}</span>
                     <span className="bg-pink-100 text-pink-800 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize">
                       {item.flow_intensity} Flow
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
                     Cycle duration: {item.cycle_length_days} days • Period: {item.period_length_days} days
-                    {item.end_date ? ` • Ended: ${item.end_date}` : ''}
+                    {item.end_date ? ` • Ended: ${formatISTDateOnly(item.end_date)}` : ''}
+                    {item.created_at ? ` • Logged: ${formatIST(item.created_at)}` : ''}
                   </p>
                   {item.symptoms && (
                     <p className="text-xs text-slate-700 mt-1">Symptoms: {item.symptoms}</p>
