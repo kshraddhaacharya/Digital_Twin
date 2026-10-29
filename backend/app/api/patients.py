@@ -3,17 +3,17 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
 
-from backend.app.database.connection import get_db
-from backend.app.models.patient import Patient
-from backend.app.models.measurement import Measurement
-from backend.app.models.user import User
-from backend.app.schemas.patient import PatientCreate, PatientResponse, SyntheticPatientRequest
-from backend.app.data.synthetic import generate_synthetic_patient_data
-from backend.app.digital_twin.engine import DigitalTwinEngine
-from backend.app.services.ingestion import parse_iso_datetime
-from backend.app.services.clinical_metrics import calculate_bmi
-from backend.app.services.auth import get_optional_current_user, verify_patient_authorization
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.database.connection import get_db
+from app.models.patient import Patient
+from app.models.measurement import Measurement
+from app.models.user import User
+from app.schemas.patient import PatientCreate, PatientResponse, SyntheticPatientRequest
+from app.data.synthetic import generate_synthetic_patient_data
+from app.digital_twin.engine import DigitalTwinEngine
+from app.services.ingestion import parse_iso_datetime
+from app.services.clinical_metrics import calculate_bmi
+from app.services.auth import get_optional_current_user, verify_patient_authorization
+from app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/patients", tags=["Patients"])
 
@@ -215,3 +215,4 @@ def get_patient(
         "attestation_status": active_twin.attestation_status if active_twin else "UNAVAILABLE",
         "on_chain_tx_hash": active_twin.on_chain_tx_hash if active_twin else None
     }
+

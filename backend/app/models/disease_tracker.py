@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class HealthCondition(Base):
@@ -38,3 +38,4 @@ class ConditionLog(Base):
 
     user = relationship("User", back_populates="condition_logs")
     condition = relationship("HealthCondition", back_populates="logs")
+

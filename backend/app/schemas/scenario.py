@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.utils.datetime_utils import to_utc_iso
 
 
 class ScenarioPoint(BaseModel):
@@ -48,3 +48,4 @@ class ScenarioComparisonResponse(BaseModel):
     scenario_b: ScenarioResponse
     delta_summary: dict
     disclaimer: str
+

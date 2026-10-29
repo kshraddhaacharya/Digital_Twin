@@ -3,12 +3,12 @@ from typing import List, Optional, Tuple, Dict, Any
 import numpy as np
 from sqlalchemy.orm import Session
 
-from backend.app.models.measurement import Measurement
-from backend.app.models.patient import Patient
-from backend.app.models.twin_state import TwinState
-from backend.app.models.forecast import Forecast
-from backend.app.web3.service import Web3Service
-from backend.app.services.clinical_metrics import classify_vital_status
+from app.models.measurement import Measurement
+from app.models.patient import Patient
+from app.models.twin_state import TwinState
+from app.models.forecast import Forecast
+from app.web3.service import Web3Service
+from app.services.clinical_metrics import classify_vital_status
 
 
 class DigitalTwinEngine:
@@ -348,3 +348,4 @@ class DigitalTwinEngine:
             state.data_freshness_seconds = round(freshness, 1)
 
         return state
+

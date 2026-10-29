@@ -3,21 +3,21 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.app.database.connection import get_db
-from backend.app.models.user import User
-from backend.app.models.patient import Patient
-from backend.app.models.measurement import Measurement
-from backend.app.models.twin_state import TwinState
-from backend.app.digital_twin.engine import DigitalTwinEngine
-from backend.app.schemas.auth import UserRegister, UserLogin, UserProfileUpdate, UserResponse, TokenResponse
-from backend.app.services.auth import (
+from app.database.connection import get_db
+from app.models.user import User
+from app.models.patient import Patient
+from app.models.measurement import Measurement
+from app.models.twin_state import TwinState
+from app.digital_twin.engine import DigitalTwinEngine
+from app.schemas.auth import UserRegister, UserLogin, UserProfileUpdate, UserResponse, TokenResponse
+from app.services.auth import (
     hash_password,
     verify_password,
     create_access_token,
     get_current_user
 )
-from backend.app.services.clinical_metrics import calculate_bmi
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.services.clinical_metrics import calculate_bmi
+from app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/auth", tags=["Authentication & User Accounts"])
 
@@ -43,7 +43,7 @@ def _to_user_response(user: User) -> dict:
         "emergency_contact": user.emergency_contact,
         "profile_photo": user.profile_photo,
         "health_notes": user.health_notes,
-        "created_at": to_utc_iso(user.created_at)
+        "created_at": user.created_at or datetime.now(timezone.utc)
     }
 
 
@@ -137,7 +137,13 @@ def register_user(payload: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login_user(payload: UserLogin, db: Session = Depends(get_db)):
     """Authenticates a user with email and password and returns a JWT token."""
-    user = db.query(User).filter(User.email == payload.email.lower().strip(), User.is_active == True).first()
+    login_id = (payload.email or payload.username or "").lower().strip()
+    if not login_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email address is required for authentication."
+        )
+    user = db.query(User).filter(User.email == login_id, User.is_active == True).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -233,3 +239,4 @@ def delete_user_account(
         "success": True,
         "message": "Your account and all associated personal health data have been permanently deleted."
     }
+

@@ -4,19 +4,19 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.app.database.connection import Base, get_db
-from backend.app.main import app
-from backend.app.models.patient import Patient
-from backend.app.models.measurement import Measurement
-from backend.app.models.twin_state import TwinState
-from backend.app.models.forecast import Forecast
-from backend.app.models.scenario import Scenario
-from backend.app.digital_twin.engine import DigitalTwinEngine
-from backend.app.forecasting.engine import ForecastingEngine
-from backend.app.simulation.engine import SimulationEngine
-from backend.app.evaluation.engine import EvaluationEngine
-from backend.app.data.synthetic import generate_synthetic_patient_data, generate_synthetic_csv
-from backend.app.services.ingestion import process_csv_upload, process_json_upload
+from app.database.connection import Base, get_db
+from app.main import app
+from app.models.patient import Patient
+from app.models.measurement import Measurement
+from app.models.twin_state import TwinState
+from app.models.forecast import Forecast
+from app.models.scenario import Scenario
+from app.digital_twin.engine import DigitalTwinEngine
+from app.forecasting.engine import ForecastingEngine
+from app.simulation.engine import SimulationEngine
+from app.evaluation.engine import EvaluationEngine
+from app.data.synthetic import generate_synthetic_patient_data, generate_synthetic_csv
+from app.services.ingestion import process_csv_upload, process_json_upload
 
 
 from sqlalchemy.pool import StaticPool
@@ -562,3 +562,4 @@ def test_web3_sovereign_consent_grant_and_revoke(client):
     res_check3 = client.get("/api/web3/patients/PT-WEB3-ACCESS/access/check", params={"user_address": researcher_addr})
     assert res_check3.status_code == 200
     assert res_check3.json()["has_access"] is False
+

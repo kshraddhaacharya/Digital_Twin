@@ -14,7 +14,8 @@ import {
   ConditionLog,
   DiseaseAnalytics,
   CycleSummary,
-  CycleLog
+  CycleLog,
+  ReportIntegrityVerification
 } from '../types';
 
 const API_BASE = '/api';
@@ -259,12 +260,13 @@ export const api = {
     return res.data;
   },
 
-  getReports: async (search?: string, startDate?: string, endDate?: string, patientId?: string): Promise<MedicalReport[]> => {
+  getReports: async (search?: string, startDate?: string, endDate?: string, patientId?: string, category?: string): Promise<MedicalReport[]> => {
     const params: any = {};
     if (search) params.search = search;
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
     if (patientId) params.patient_id = patientId;
+    if (category && category !== 'ALL') params.category = category;
     const res = await client.get('/reports', { params });
     return res.data;
   },
@@ -295,6 +297,16 @@ export const api = {
     notes?: string;
   }) => {
     const res = await client.post(`/reports/${reportId}/confirm-biomarkers`, data);
+    return res.data;
+  },
+
+  reprocessReport: async (reportId: number): Promise<{ success: boolean; message: string; report: MedicalReport }> => {
+    const res = await client.post(`/reports/${reportId}/reprocess`);
+    return res.data;
+  },
+
+  verifyReportIntegrity: async (reportId: number): Promise<ReportIntegrityVerification> => {
+    const res = await client.get(`/reports/${reportId}/verify-integrity`);
     return res.data;
   },
 

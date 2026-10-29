@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import uuid
 from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, JSON, Index
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class Scenario(Base):
@@ -27,3 +27,4 @@ class Scenario(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     patient = relationship("Patient", back_populates="scenarios")
+

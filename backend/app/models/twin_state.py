@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class TwinState(Base):
@@ -49,3 +49,4 @@ class TwinState(Base):
     __table_args__ = (
         Index("ix_patient_version", "patient_id", "state_version"),
     )
+

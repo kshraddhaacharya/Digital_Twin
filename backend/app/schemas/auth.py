@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_serializer
-from backend.app.services.clinical_metrics import calculate_bmi
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.services.clinical_metrics import calculate_bmi
+from app.utils.datetime_utils import to_utc_iso
 
 
 class UserRegister(BaseModel):
@@ -24,7 +24,8 @@ class UserRegister(BaseModel):
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
     password: str
 
 
@@ -64,14 +65,15 @@ class UserResponse(BaseModel):
     emergency_contact: Optional[str] = None
     profile_photo: Optional[str] = None
     health_notes: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     @field_serializer("created_at", when_used="json")
     def serialize_created_at(self, dt: Optional[datetime]) -> Optional[str]:
-        return to_utc_iso(dt)
+        return to_utc_iso(dt) if dt else to_utc_iso(datetime.now(timezone.utc))
 
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+

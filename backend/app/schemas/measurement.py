@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator, ConfigDict, field_serializer
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.utils.datetime_utils import to_utc_iso
 
 
 VALID_UNITS = {
@@ -105,3 +105,4 @@ class MeasurementBatchUploadResponse(BaseModel):
     duplicates_skipped: int
     errors: list[str]
     twin_state_version: Optional[int] = None
+

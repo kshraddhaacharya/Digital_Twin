@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class Measurement(Base):
@@ -25,3 +25,4 @@ class Measurement(Base):
         UniqueConstraint("patient_id", "measurement_type", "timestamp", name="uq_patient_measurement_time"),
         Index("ix_patient_type_time", "patient_id", "measurement_type", "timestamp"),
     )
+

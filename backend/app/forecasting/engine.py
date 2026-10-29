@@ -5,10 +5,10 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from sqlalchemy.orm import Session
 
-from backend.app.models.measurement import Measurement
-from backend.app.models.twin_state import TwinState
-from backend.app.models.forecast import Forecast
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.models.measurement import Measurement
+from app.models.twin_state import TwinState
+from app.models.forecast import Forecast
+from app.utils.datetime_utils import to_utc_iso
 
 
 class ForecastingEngine:
@@ -205,3 +205,4 @@ class ForecastingEngine:
         db.refresh(forecast_record)
 
         return forecast_record
+

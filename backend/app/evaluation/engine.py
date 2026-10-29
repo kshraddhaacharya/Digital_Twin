@@ -5,8 +5,8 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from sqlalchemy.orm import Session
 
-from backend.app.models.measurement import Measurement
-from backend.app.models.evaluation import ModelEvaluation
+from app.models.measurement import Measurement
+from app.models.evaluation import ModelEvaluation
 
 
 class EvaluationEngine:
@@ -153,3 +153,4 @@ class EvaluationEngine:
             "disclaimer": eval_disclaimer,
             "created_at": eval_record.created_at
         }
+

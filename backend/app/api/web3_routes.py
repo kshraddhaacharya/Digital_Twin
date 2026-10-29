@@ -3,13 +3,13 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from backend.app.database.connection import get_db
-from backend.app.models.patient import Patient
-from backend.app.models.twin_state import TwinState
-from backend.app.models.user import User
-from backend.app.services.auth import get_optional_current_user, verify_patient_authorization
-from backend.app.web3.service import Web3Service
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.database.connection import get_db
+from app.models.patient import Patient
+from app.models.twin_state import TwinState
+from app.models.user import User
+from app.services.auth import get_optional_current_user, verify_patient_authorization
+from app.web3.service import Web3Service
+from app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/web3", tags=["Web3 & Decentralized Patient Sovereignty"])
 
@@ -171,3 +171,4 @@ def check_access_on_chain(
         }
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+

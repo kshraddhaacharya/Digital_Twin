@@ -6,9 +6,9 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from backend.app.database.connection import get_db
-from backend.app.models.user import User
-from backend.app.models.patient import Patient
+from app.database.connection import get_db
+from app.models.user import User
+from app.models.patient import Patient
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "hackloop-2026-digital-twin-secure-jwt-key-9283748234")
 ALGORITHM = "HS256"
@@ -126,3 +126,4 @@ def verify_patient_authorization(
         )
 
     return patient
+

@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(String(64), primary_key=True, index=True)
     email = Column(String(128), unique=True, index=True, nullable=False)
@@ -38,3 +39,4 @@ class User(Base):
     conditions = relationship("HealthCondition", back_populates="user", cascade="all, delete-orphan")
     condition_logs = relationship("ConditionLog", back_populates="user", cascade="all, delete-orphan")
     cycles = relationship("PeriodCycle", back_populates="user", cascade="all, delete-orphan")
+
