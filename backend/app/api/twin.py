@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from backend.app.database.connection import get_db
-from backend.app.models.patient import Patient
-from backend.app.models.twin_state import TwinState
-from backend.app.models.user import User
-from backend.app.schemas.twin import TwinStateResponse
-from backend.app.digital_twin.engine import DigitalTwinEngine
-from backend.app.services.auth import get_optional_current_user, verify_patient_authorization
+from app.database.connection import get_db
+from app.models.patient import Patient
+from app.models.twin_state import TwinState
+from app.models.user import User
+from app.schemas.twin import TwinStateResponse
+from app.digital_twin.engine import DigitalTwinEngine
+from app.services.auth import get_optional_current_user, verify_patient_authorization
 
 router = APIRouter(prefix="/patients/{patient_id}/twin", tags=["Digital Twin"])
 
@@ -62,3 +62,4 @@ def initialize_twin(
         return state
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+

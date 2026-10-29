@@ -1,18 +1,30 @@
+import sys
 import os
+
+# Ensure both project root and backend dir are in sys.path so imports resolve cleanly,
+# whether launched as `uvicorn backend.app.main:app` from root or `uvicorn app.main:app` from backend/
+_cur = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.abspath(os.path.join(_cur, "..", ".."))
+_backend_dir = os.path.abspath(os.path.join(_cur, ".."))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.app.database.connection import engine, Base, SessionLocal
-from backend.app.database.migration import run_migrations
-from backend.app.models import *  # noqa: F401, F403
-from backend.app.api import api_router
-from backend.app.data.synthetic import generate_synthetic_patient_data
-from backend.app.models.patient import Patient
-from backend.app.models.measurement import Measurement
-from backend.app.digital_twin.engine import DigitalTwinEngine
-from backend.app.services.ingestion import parse_iso_datetime
+from app.database.connection import engine, Base, SessionLocal
+from app.database.migration import run_migrations
+from app.models import *  # noqa: F401, F403
+from app.api import api_router
+from app.data.synthetic import generate_synthetic_patient_data
+from app.models.patient import Patient
+from app.models.measurement import Measurement
+from app.digital_twin.engine import DigitalTwinEngine
+from app.services.ingestion import parse_iso_datetime
 
 
 def seed_default_demo_patient():
@@ -135,3 +147,5 @@ def root():
         "api_prefix": "/api",
         "health": "/api/health"
     }
+
+

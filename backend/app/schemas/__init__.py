@@ -1,9 +1,9 @@
-from backend.app.schemas.patient import PatientCreate, PatientResponse, SyntheticPatientRequest
-from backend.app.schemas.measurement import MeasurementCreate, MeasurementResponse, MeasurementBatchUploadResponse
-from backend.app.schemas.twin import TwinStateResponse, TwinUpdateResult
-from backend.app.schemas.forecast import ForecastRequest, ForecastPoint, ForecastResponse
-from backend.app.schemas.scenario import ScenarioSimulateRequest, ScenarioResponse, ScenarioComparisonResponse
-from backend.app.schemas.evaluation import EvaluationRequest, EvaluationResponse
+from app.schemas.patient import PatientCreate, PatientResponse, SyntheticPatientRequest
+from app.schemas.measurement import MeasurementCreate, MeasurementResponse, MeasurementBatchUploadResponse
+from app.schemas.twin import TwinStateResponse, TwinUpdateResult
+from app.schemas.forecast import ForecastRequest, ForecastPoint, ForecastResponse
+from app.schemas.scenario import ScenarioSimulateRequest, ScenarioResponse, ScenarioComparisonResponse
+from app.schemas.evaluation import EvaluationRequest, EvaluationResponse
 
 __all__ = [
     "PatientCreate",
@@ -23,3 +23,4 @@ __all__ = [
     "EvaluationRequest",
     "EvaluationResponse",
 ]
+

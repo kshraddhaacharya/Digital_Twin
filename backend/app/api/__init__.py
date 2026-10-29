@@ -1,18 +1,18 @@
 from fastapi import APIRouter
-from backend.app.api.health import router as health_router
-from backend.app.api.patients import router as patients_router
-from backend.app.api.measurements import router as measurements_router
-from backend.app.api.twin import router as twin_router
-from backend.app.api.forecast import router as forecast_router
-from backend.app.api.simulation import router as simulation_router
-from backend.app.api.evaluation import router as evaluation_router
-from backend.app.api.web3_routes import router as web3_router
+from app.api.health import router as health_router
+from app.api.patients import router as patients_router
+from app.api.measurements import router as measurements_router
+from app.api.twin import router as twin_router
+from app.api.forecast import router as forecast_router
+from app.api.simulation import router as simulation_router
+from app.api.evaluation import router as evaluation_router
+from app.api.web3_routes import router as web3_router
 
-from backend.app.api.auth import router as auth_router
-from backend.app.api.reports import router as reports_router
-from backend.app.api.videos import router as videos_router
-from backend.app.api.disease_tracker import router as disease_tracker_router
-from backend.app.api.cycle import router as cycle_router
+from app.api.auth import router as auth_router
+from app.api.reports import router as reports_router
+from app.api.videos import router as videos_router
+from app.api.disease_tracker import router as disease_tracker_router
+from app.api.cycle import router as cycle_router
 
 api_router = APIRouter(prefix="/api")
 
@@ -31,3 +31,4 @@ api_router.include_router(disease_tracker_router)
 api_router.include_router(cycle_router)
 
 __all__ = ["api_router"]
+

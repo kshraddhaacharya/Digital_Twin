@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from backend.app.database.connection import get_db
-from backend.app.models.patient import Patient
-from backend.app.schemas.evaluation import EvaluationResponse
-from backend.app.evaluation.engine import EvaluationEngine
+from app.database.connection import get_db
+from app.models.patient import Patient
+from app.schemas.evaluation import EvaluationResponse
+from app.evaluation.engine import EvaluationEngine
 
 router = APIRouter(prefix="/patients/{patient_id}", tags=["Model Evaluation"])
 
@@ -32,3 +32,4 @@ def evaluate_models(
         return results
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+

@@ -1,66 +1,65 @@
+"""
+Medical Report Processing Pipeline for Sovereign Health Twin.
+Integrates text extraction, OCR, multi-category classification, structured clinical
+extraction, and grounded summary generation.
+"""
+
 import io
 import re
 import json
 from typing import Dict, Any, List, Optional
-from pypdf import PdfReader
-from PIL import Image
+
+from app.services.report_classifier import (
+    classify_medical_report,
+    ReportCategory,
+    CATEGORY_DISPLAY_NAMES
+)
+from app.services.ocr_service import (
+    extract_document_text,
+    register_ocr_handler,
+    get_ocr_handler,
+    is_tesseract_available
+)
+from app.services.report_extractor import (
+    extract_structured_findings,
+    extract_tumor_markers,
+    extract_histopathology,
+    extract_immunohistochemistry,
+    extract_molecular_genetics,
+    extract_radiology,
+    extract_cbc_analytes,
+    extract_biochemistry_analytes,
+    find_source_snippet
+)
+from app.services.report_summary import generate_grounded_clinical_summary
 
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
-    """
-    Extracts text from PDF document using pypdf.
-    Clearly reports when a document has no readable digital text layer (scanned).
-    """
-    try:
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-        extracted = []
-        for i, page in enumerate(reader.pages):
-            txt = page.extract_text()
-            if txt and txt.strip():
-                extracted.append(f"--- Page {i + 1} ---\n{txt.strip()}")
-
-        if not extracted:
-            return (
-                "[PDF uploaded successfully, but no digital text layer was found. "
-                "This appears to be a scanned image-based document. "
-                "Please enter vitals manually or review the document directly.]"
-            )
-
-        return "\n\n".join(extracted)
-    except Exception as e:
-        return f"[PDF parsing warning: Could not read text: {str(e)}]"
+    """Extracts text from PDF document using enhanced extraction and error handling."""
+    res = extract_document_text(pdf_bytes, "document.pdf", ".pdf")
+    if res["error"]:
+        return f"[PDF parsing warning: {res['error']}]"
+    if res["is_scanned"] and not res["ocr_applied"]:
+        return (
+            "[PDF uploaded successfully, but no digital text layer was found. "
+            "This appears to be a scanned image-based document. "
+            f"{res['ocr_message'] or 'Please review the document directly or enter key findings manually.'}]"
+        )
+    return res["text"] or "[Empty document]"
 
 
 def extract_text_from_image(img_bytes: bytes, filename: str) -> str:
-    """
-    Validates image file and extracts metadata and header context.
-    Does NOT invent simulated lab results if no text layer exists.
-    """
-    try:
-        image = Image.open(io.BytesIO(img_bytes))
-        width, height = image.size
-        img_format = image.format or "IMAGE"
-        
-        meta_lines = [
-            f"[Medical Document Image: {filename} ({img_format}, {width}x{height} px)]",
-            "Notice: Automated OCR is not enabled for image files. Values must be verified by the user before inclusion in health records."
-        ]
-        
-        if image.info:
-            for k, v in image.info.items():
-                if isinstance(v, str) and len(v.strip()) > 3:
-                    meta_lines.append(f"{k}: {v.strip()}")
-        
-        return "\n".join(meta_lines)
-    except Exception as e:
-        return f"[Image processing warning: {str(e)}]"
+    """Validates image file and extracts text via OCR when available."""
+    ext = ".png" if filename.lower().endswith(".png") else ".jpg"
+    res = extract_document_text(img_bytes, filename, ext)
+    return res["text"]
 
 
 def parse_clinical_biomarkers(text: str) -> List[Dict[str, Any]]:
     """
-    Scans clinical text for standard medical biomarkers, values, reference ranges, and units.
-    Does NOT fabricate results for unreadable text: only extracts clearly detected parameters.
-    Labels every item with requires_confirmation=True for patient safety.
+    Scans clinical text for standard medical biomarkers, vitals, and tumor markers.
+    Labels items with requires_confirmation=True for patient safety before twin sync.
+    Does NOT invent values for missing parameters.
     """
     biomarkers = []
 
@@ -157,6 +156,20 @@ def parse_clinical_biomarkers(text: str) -> List[Dict[str, Any]]:
             "requires_confirmation": True
         })
 
+    # 7. Tumor Markers as candidate parameters
+    tm_list = extract_tumor_markers(text)
+    for tm in tm_list:
+        biomarkers.append({
+            "name": tm["name"],
+            "key": tm["key"],
+            "value": tm["value"],
+            "unit": tm.get("unit") or "",
+            "reference_range": tm.get("reference_range") or "Unspecified",
+            "status": tm.get("status") or "reported",
+            "confidence": tm.get("confidence", "moderate"),
+            "requires_confirmation": False
+        })
+
     return biomarkers
 
 
@@ -168,55 +181,48 @@ def generate_report_summary(
     file_type: str = "pdf"
 ) -> str:
     """
-    Constructs a factual, transparent clinical summary from parsed document text
-    and recognized biomarkers without fabricating clinical diagnoses.
+    Constructs a factual, transparent clinical summary from parsed document text.
+    Classifies the report dynamically instead of forcing every report into cardiovascular vitals.
     """
     text_clean = (extracted_text or "").strip()
     is_scanned = (
         not text_clean
         or "no digital text layer was found" in text_clean
-        or "Automated OCR is not enabled" in text_clean
+        or "Automated OCR is not" in text_clean
         or "Could not read text" in text_clean
     )
 
-    if is_scanned:
-        return (
-            f"Document '{title}' ({report_date}) was uploaded as an image or scanned document. "
-            "Automated text extraction was unsuccessful because no digital character layer was found. "
-            "Automated OCR is not configured; clinical biomarkers cannot be automatically parsed. "
-            "Please review the original file directly or record vital signs manually."
-        )
+    classification = classify_medical_report(text_clean, title)
+    findings = extract_structured_findings(text_clean, classification["category_id"], title)
 
-    # Word and line metrics
-    lines = [line.strip() for line in text_clean.splitlines() if line.strip() and not line.startswith("--- Page")]
-    word_count = len(text_clean.split())
-
-    if biomarkers:
-        param_strings = []
-        for b in biomarkers:
-            status_desc = b.get("status", "normal")
-            param_strings.append(f"{b['name']}: {b['value']} {b.get('unit', '')} ({status_desc}, ref: {b.get('reference_range', 'standard')})")
-        
-        abnormal_count = sum(1 for b in biomarkers if b.get("status") in ["elevated", "low"])
-        findings_note = f" All {len(biomarkers)} parameters are within normal reference ranges." if abnormal_count == 0 else f" Note: {abnormal_count} parameter(s) are outside standard resting ranges."
-
-        return (
-            f"Successfully processed '{title}' ({report_date}). Parsed {len(lines)} content lines ({word_count} words). "
-            f"Extracted {len(biomarkers)} clinical parameter(s): {'; '.join(param_strings)}.{findings_note} "
-            "Please review each parameter before confirming ingestion into your physiological twin."
-        )
+    # Determine processing status
+    if not text_clean:
+        status = "Failed"
+    elif is_scanned:
+        status = "Needs review"
+    elif classification["category_id"] == ReportCategory.UNCERTAIN:
+        status = "Needs review"
+    elif findings["missing_fields"]:
+        status = "Partially processed"
+    elif (findings["tumor_markers"] or findings["diagnosis"] or findings["ihc_markers"]
+          or findings["molecular_tests"] or findings["radiology"] or findings["laboratory_parameters"]):
+        status = "Clinically structured"
     else:
-        return (
-            f"Successfully processed '{title}' ({report_date}). Parsed {len(lines)} content lines ({word_count} words). "
-            "The document contains readable digital text, but no recognized cardiovascular or metabolic vital signs "
-            "(such as Heart Rate, Blood Pressure, Fasting Glucose, SpO2, or Hemoglobin) matched standard laboratory formats."
-        )
+        status = "Text extracted"
+
+    return generate_grounded_clinical_summary(
+        title=title,
+        report_date=report_date,
+        classification=classification,
+        extraction_result=findings,
+        raw_text=text_clean,
+        processing_status=status,
+        is_scanned=is_scanned
+    )
 
 
 def search_report_text(full_text: str, query: str) -> Dict[str, Any]:
-    """
-    Search engine scanning report text for keywords, returning matching snippets and line numbers.
-    """
+    """Search engine scanning report text for keywords, returning matching snippets and line numbers."""
     if not full_text or not query:
         return {"query": query, "matches_found": 0, "snippets": []}
 
@@ -240,3 +246,4 @@ def search_report_text(full_text: str, query: str) -> Dict[str, Any]:
         "matches_found": len(matches),
         "snippets": matches
     }
+

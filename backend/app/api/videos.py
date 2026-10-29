@@ -5,15 +5,17 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, s
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from backend.app.database.connection import get_db
-from backend.app.models.user import User
-from backend.app.models.video import UserVideo
-from backend.app.services.auth import get_current_user
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.database.connection import get_db
+from app.models.user import User
+from app.models.video import UserVideo
+from app.services.auth import get_current_user
+from app.utils.datetime_utils import to_utc_iso
 
 router = APIRouter(prefix="/videos", tags=["Video Upload & Library"])
 
-VIDEO_UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "videos")
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.abspath(os.path.join(_current_dir, "..", "..", ".."))
+VIDEO_UPLOAD_DIR = os.getenv("VIDEO_UPLOAD_DIR", os.path.join(_project_root, "uploads", "videos"))
 os.makedirs(VIDEO_UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
@@ -81,7 +83,8 @@ async def upload_user_video(
     }
 
 
-@router.get("/")
+@router.get("", include_in_schema=True)
+@router.get("/", include_in_schema=False)
 def list_user_videos(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -158,3 +161,4 @@ def delete_user_video(
     db.delete(video)
     db.commit()
     return {"success": True, "message": "Video deleted successfully."}
+

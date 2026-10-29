@@ -5,8 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from backend.app.main import app
-from backend.app.database.connection import Base, get_db
+from app.main import app
+from app.database.connection import Base, get_db
 
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 
@@ -26,15 +26,16 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
 def setup_test_db():
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.pop(get_db, None)
 
 
 def test_auth_registration_and_login():
@@ -153,3 +154,4 @@ def test_menstrual_cycle_tracker():
     assert data["has_data"] is True
     assert "current_phase" in data
     assert "days_until_next_period" in data
+

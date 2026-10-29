@@ -2,7 +2,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 import numpy as np
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.utils.datetime_utils import to_utc_iso
 
 
 def generate_synthetic_patient_data(
@@ -123,3 +123,4 @@ def generate_synthetic_csv(patient_id: str = "PT-DEMO-001") -> str:
     for m in data["measurements"]:
         lines.append(f"{m['timestamp']},{m['measurement_type']},{m['value']},{m['unit']},{m['source']}")
     return "\n".join(lines)
+

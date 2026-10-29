@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from backend.app.database.connection import get_db
-from backend.app.models.patient import Patient
-from backend.app.models.scenario import Scenario
-from backend.app.models.user import User
-from backend.app.schemas.scenario import ScenarioSimulateRequest, ScenarioComparisonResponse, ScenarioResponse
-from backend.app.simulation.engine import SimulationEngine
-from backend.app.services.auth import get_optional_current_user, verify_patient_authorization
+from app.database.connection import get_db
+from app.models.patient import Patient
+from app.models.scenario import Scenario
+from app.models.user import User
+from app.schemas.scenario import ScenarioSimulateRequest, ScenarioComparisonResponse, ScenarioResponse
+from app.simulation.engine import SimulationEngine
+from app.services.auth import get_optional_current_user, verify_patient_authorization
 
 router = APIRouter(prefix="/patients/{patient_id}", tags=["Simulation"])
 
@@ -54,3 +54,4 @@ def get_scenarios(
     return db.query(Scenario).filter(
         Scenario.patient_id == patient_id
     ).order_by(Scenario.created_at.desc()).limit(limit).all()
+

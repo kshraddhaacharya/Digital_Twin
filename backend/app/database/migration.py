@@ -1,15 +1,31 @@
 import sqlite3
 import os
+import bcrypt
 
-def run_migrations(db_path: str = "patient_twin.db"):
+DEMO_BCRYPT_HASH = bcrypt.hashpw(b"DemoPassword123!", bcrypt.gensalt()).decode("utf-8")
+
+
+def get_canonical_db_path(db_path: str = None) -> str:
+    if db_path:
+        return db_path
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
+    root_db = os.path.join(project_root, "patient_twin.db")
+    if os.path.exists(root_db):
+        return root_db
+    return os.path.abspath("patient_twin.db")
+
+
+def run_migrations(db_path: str = None):
     """
     Safely adds missing columns to existing SQLite tables without dropping tables
     or overwriting existing patient records.
     """
-    if not os.path.exists(db_path):
+    target_path = get_canonical_db_path(db_path)
+    if not os.path.exists(target_path):
         return
 
-    con = sqlite3.connect(db_path)
+    con = sqlite3.connect(target_path)
     cur = con.cursor()
 
     def get_columns(table: str):
@@ -57,13 +73,39 @@ def run_migrations(db_path: str = "patient_twin.db"):
     if user_cols:
         if "profile_version" not in user_cols:
             cur.execute("ALTER TABLE users ADD COLUMN profile_version INTEGER NOT NULL DEFAULT 1")
-        # Ensure default demo user exists for foreign keys
-        demo_user = cur.execute("SELECT id FROM users WHERE id = 'USR-DEMO'").fetchone()
+        # Ensure default demo user exists for foreign keys and has valid bcrypt credentials
+        demo_user = cur.execute("SELECT id, hashed_password FROM users WHERE id = 'USR-DEMO' OR email = 'demo@patient.org'").fetchone()
         if not demo_user:
             cur.execute("""
-                INSERT INTO users (id, email, hashed_password, full_name, is_active, patient_id, profile_version)
-                VALUES ('USR-DEMO', 'demo@patient.org', 'demo_hash', 'Alice M. Taylor (Demo)', 1, 'PT-DEMO-001', 1)
-            """)
+                INSERT INTO users (id, email, hashed_password, full_name, is_active, patient_id, profile_version, created_at)
+                VALUES ('USR-DEMO', 'demo@patient.org', ?, 'Alice M. Taylor (Demo)', 1, 'PT-DEMO-001', 1, CURRENT_TIMESTAMP)
+            """, (DEMO_BCRYPT_HASH,))
+        else:
+            if demo_user[1] == 'demo_hash' or not (demo_user[1].startswith('$2b$') or demo_user[1].startswith('$2a$') or demo_user[1].startswith('$2y$')):
+                cur.execute("""
+                    UPDATE users SET hashed_password = ? WHERE id = 'USR-DEMO' OR email = 'demo@patient.org'
+                """, (DEMO_BCRYPT_HASH,))
+            cur.execute("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE (id = 'USR-DEMO' OR email = 'demo@patient.org') AND created_at IS NULL")
+
+    # 5. Migrations for medical_reports table
+    report_cols = get_columns("medical_reports")
+    if report_cols:
+        if "file_hash_sha256" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN file_hash_sha256 VARCHAR(64)")
+        if "report_category" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN report_category VARCHAR(64) DEFAULT 'uncertain'")
+        if "classification_confidence" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN classification_confidence VARCHAR(32) DEFAULT 'low'")
+        if "classification_evidence" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN classification_evidence TEXT")
+        if "processing_status" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN processing_status VARCHAR(32) DEFAULT 'Uploaded'")
+        if "clinical_summary" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN clinical_summary TEXT")
+        if "structured_findings" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN structured_findings TEXT")
+        if "processing_warnings" not in report_cols:
+            cur.execute("ALTER TABLE medical_reports ADD COLUMN processing_warnings TEXT")
 
     con.commit()
     con.close()

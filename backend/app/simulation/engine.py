@@ -5,9 +5,9 @@ from typing import Dict, Any, List
 import numpy as np
 from sqlalchemy.orm import Session
 
-from backend.app.models.twin_state import TwinState
-from backend.app.models.scenario import Scenario
-from backend.app.forecasting.engine import ForecastingEngine
+from app.models.twin_state import TwinState
+from app.models.scenario import Scenario
+from app.forecasting.engine import ForecastingEngine
 
 
 class SimulationEngine:
@@ -184,3 +184,4 @@ class SimulationEngine:
             "delta_summary": delta_summary,
             "disclaimer": limitations_doc
         }
+

@@ -36,7 +36,9 @@ export function App() {
   const [tabHistory, setTabHistory] = useState<string[]>(['my-health']);
 
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('PT-DEMO-001');
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(() => {
+    return localStorage.getItem('selected_patient_id') || 'PT-DEMO-001';
+  });
 
   const [currentPatient, setCurrentPatient] = useState<Patient | null>(null);
   const [twinState, setTwinState] = useState<TwinState | null>(null);
@@ -124,23 +126,34 @@ export function App() {
           const user = await api.getMe();
           setCurrentUser(user);
           setSelectedPatientId(user.patient_id);
-          navigateTab('my-health');
+          localStorage.setItem('selected_patient_id', user.patient_id);
+          const currentHash = window.location.hash.replace('#', '');
+          if (currentHash && currentHash !== 'landing') {
+            setActiveTab(currentHash);
+          } else {
+            navigateTab('my-health');
+          }
+          await loadPatients(user.patient_id);
         } catch (err) {
           api.setToken(null);
           setCurrentUser(null);
+          await loadPatients();
         }
+      } else {
+        await loadPatients();
       }
     };
     initSession();
-    loadPatients();
   }, []);
 
-  const loadPatients = async () => {
+  const loadPatients = async (preferredPid?: string) => {
     try {
       const pts = await api.getPatients();
       setPatients(pts);
-      if (pts.length > 0 && !pts.some((p) => p.id === selectedPatientId)) {
+      const activePid = preferredPid || selectedPatientId;
+      if (pts.length > 0 && !pts.some((p) => p.id === activePid)) {
         setSelectedPatientId(pts[0].id);
+        localStorage.setItem('selected_patient_id', pts[0].id);
       }
     } catch (err) {
       console.error('Failed to fetch patients:', err);
@@ -225,19 +238,22 @@ export function App() {
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setSelectedPatientId(user.patient_id);
+    localStorage.setItem('selected_patient_id', user.patient_id);
     navigateTab('my-health');
-    loadPatients();
+    loadPatients(user.patient_id);
     loadPatientData(user.patient_id);
   };
 
   const handleLogout = () => {
     api.setToken(null);
     setCurrentUser(null);
+    localStorage.removeItem('selected_patient_id');
     navigateTab('landing');
   };
 
   const handleExploreDemo = () => {
     setSelectedPatientId('PT-DEMO-001');
+    localStorage.setItem('selected_patient_id', 'PT-DEMO-001');
     navigateTab('my-health');
     loadPatientData('PT-DEMO-001');
   };
@@ -278,7 +294,10 @@ export function App() {
         user={currentUser}
         patients={patients}
         selectedPatientId={selectedPatientId}
-        onSelectPatient={(id) => setSelectedPatientId(id)}
+        onSelectPatient={(id) => {
+          setSelectedPatientId(id);
+          localStorage.setItem('selected_patient_id', id);
+        }}
         onRefresh={() => {
           loadPatientData(selectedPatientId);
           if (currentUser) loadUserFeatures();
@@ -352,7 +371,7 @@ export function App() {
             measurements={measurements}
             twinState={twinState}
             reports={reports}
-            initialSubTab={activeTab === 'reports' ? 'reports' : 'measurements'}
+            initialSubTab={activeTab === 'reports' ? 'reports' : undefined}
             onDataChanged={() => loadPatientData(selectedPatientId)}
             onNavigateTab={(tab) => navigateTab(tab)}
             onReportsChanged={loadUserFeatures}

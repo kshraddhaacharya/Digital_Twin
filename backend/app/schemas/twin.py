@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.utils.datetime_utils import to_utc_iso
 
 
 class TwinStateResponse(BaseModel):
@@ -63,3 +63,4 @@ class TwinUpdateResult(BaseModel):
     @field_serializer("updated_at", when_used="json")
     def serialize_updated_at(self, dt: Optional[datetime]) -> Optional[str]:
         return to_utc_iso(dt)
+

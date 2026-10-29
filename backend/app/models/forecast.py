@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON, Index
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class Forecast(Base):
@@ -31,3 +31,4 @@ class Forecast(Base):
     __table_args__ = (
         Index("ix_patient_forecast_state", "patient_id", "twin_state_version"),
     )
+

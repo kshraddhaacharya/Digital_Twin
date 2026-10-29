@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class ModelEvaluation(Base):
@@ -27,3 +27,4 @@ class ModelEvaluation(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     patient = relationship("Patient", back_populates="evaluations")
+

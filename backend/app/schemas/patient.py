@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
-from backend.app.services.clinical_metrics import calculate_bmi
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.services.clinical_metrics import calculate_bmi
+from app.utils.datetime_utils import to_utc_iso
 
 
 class PatientCreate(BaseModel):
@@ -51,3 +51,4 @@ class SyntheticPatientRequest(BaseModel):
     interval_minutes: Optional[int] = Field(15, ge=5, le=60, description="Minutes between consecutive readings")
     noise_level: Optional[float] = Field(1.5, ge=0.0, le=10.0, description="Gaussian noise standard deviation")
     include_exercise_transient: Optional[bool] = Field(True, description="Inject an afternoon transient exertion spike")
+

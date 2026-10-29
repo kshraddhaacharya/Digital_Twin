@@ -5,20 +5,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from backend.app.database.connection import Base, get_db
-from backend.app.main import app
-from backend.app.models.patient import Patient
-from backend.app.models.measurement import Measurement
-from backend.app.models.twin_state import TwinState
-from backend.app.models.forecast import Forecast
-from backend.app.models.user import User
-from backend.app.models.report import MedicalReport
-from backend.app.digital_twin.engine import DigitalTwinEngine
-from backend.app.forecasting.engine import ForecastingEngine
-from backend.app.simulation.engine import SimulationEngine
-from backend.app.services.clinical_metrics import calculate_bmi, classify_vital_status
-from backend.app.web3.service import Web3Service
-from backend.app.services.auth import create_access_token, hash_password
+from app.database.connection import Base, get_db
+from app.main import app
+from app.models.patient import Patient
+from app.models.measurement import Measurement
+from app.models.twin_state import TwinState
+from app.models.forecast import Forecast
+from app.models.user import User
+from app.models.report import MedicalReport
+from app.digital_twin.engine import DigitalTwinEngine
+from app.forecasting.engine import ForecastingEngine
+from app.simulation.engine import SimulationEngine
+from app.services.clinical_metrics import calculate_bmi, classify_vital_status
+from app.web3.service import Web3Service
+from app.services.auth import create_access_token, hash_password
 
 
 # Isolated in-memory SQLite database for test suite
@@ -547,3 +547,4 @@ def test_clinical_bmi_screening_and_classification():
     stat_resting = classify_vital_status(115.0, context="resting")
     assert stat_resting["status"] == "tachycardia"
     assert "Elevated Resting Rate" in stat_resting["label"]
+

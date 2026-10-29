@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text
 from sqlalchemy.orm import relationship
-from backend.app.database.connection import Base
+from app.database.connection import Base
 
 
 class Patient(Base):
@@ -26,3 +26,4 @@ class Patient(Base):
     forecasts = relationship("Forecast", back_populates="patient", cascade="all, delete-orphan", order_by="Forecast.created_at.desc()")
     scenarios = relationship("Scenario", back_populates="patient", cascade="all, delete-orphan", order_by="Scenario.created_at.desc()")
     evaluations = relationship("ModelEvaluation", back_populates="patient", cascade="all, delete-orphan")
+

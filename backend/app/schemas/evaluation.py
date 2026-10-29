@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
-from backend.app.utils.datetime_utils import to_utc_iso
+from app.utils.datetime_utils import to_utc_iso
 
 
 class EvaluationRequest(BaseModel):
@@ -29,3 +29,4 @@ class EvaluationResponse(BaseModel):
     @field_serializer("evaluation_period_start", "evaluation_period_end", "created_at", when_used="json")
     def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
         return to_utc_iso(dt)
+

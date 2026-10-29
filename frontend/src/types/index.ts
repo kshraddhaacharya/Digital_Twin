@@ -209,6 +209,99 @@ export interface Biomarker {
   requires_confirmation?: boolean;
 }
 
+export interface TumorMarkerItem {
+  name: string;
+  key: string;
+  value: string | number;
+  unit?: string;
+  reference_range?: string;
+  status?: string;
+  snippet?: string;
+  page_number?: number;
+  confidence?: string;
+}
+
+export interface HistopathologyDiagnosis {
+  specimen_site?: string;
+  procedure?: string;
+  stated_diagnosis?: string;
+  histologic_type?: string;
+  tumor_grade?: string;
+  surgical_margins?: string;
+  lymph_nodes?: string;
+  lymphovascular_invasion?: string;
+  perineural_invasion?: string;
+  pathologic_stage?: string;
+  is_malignant?: boolean;
+  is_benign_or_negative?: boolean;
+  page_number?: number;
+  source_snippet?: string;
+}
+
+export interface IhcMarkerItem {
+  marker: string;
+  result: string;
+  status?: string;
+  percentage?: string;
+  snippet?: string;
+  page_number?: number;
+}
+
+export interface MolecularTestItem {
+  gene: string;
+  test_name?: string;
+  alteration: string;
+  clinical_significance?: string;
+  vaf?: string;
+  page_number?: number;
+  snippet?: string;
+}
+
+export interface RadiologyFindings {
+  modality?: string;
+  study_name?: string;
+  indication?: string;
+  technique?: string;
+  observations?: Array<{ region: string; observation: string }>;
+  impression?: string;
+  classification?: string;
+  page_number?: number;
+}
+
+export interface LaboratoryParameterItem {
+  name: string;
+  key?: string;
+  value: string | number;
+  unit?: string;
+  reference_range?: string;
+  status?: string;
+  snippet?: string;
+  page_number?: number;
+}
+
+export interface ConsultationNotes {
+  purpose?: string;
+  context?: string;
+  assessment?: string;
+  next_steps?: string;
+  limitations?: string;
+}
+
+export interface StructuredFindings {
+  category_id?: string;
+  specimen?: { site?: string; procedure?: string };
+  diagnosis?: HistopathologyDiagnosis;
+  tumor_markers?: TumorMarkerItem[];
+  ihc_markers?: IhcMarkerItem[];
+  molecular_tests?: MolecularTestItem[];
+  radiology?: RadiologyFindings;
+  laboratory_parameters?: LaboratoryParameterItem[];
+  consultation_notes?: ConsultationNotes;
+  vitals_for_twin?: Biomarker[];
+  missing_fields?: string[];
+  page_references?: Array<{ page_number: number; key_findings: string[] }>;
+}
+
 export interface SearchMatch {
   line_number: number;
   matched_line: string;
@@ -223,8 +316,17 @@ export interface MedicalReport {
   file_name: string;
   file_type: string;
   file_size_bytes: number;
+  file_hash_sha256?: string;
+  report_category?: string;
+  category_name?: string;
+  classification_confidence?: string;
+  classification_evidence?: string[];
+  processing_status?: 'Uploaded' | 'Text extracted' | 'Clinically structured' | 'Partially processed' | 'Needs review' | 'Failed';
   description?: string;
   summary?: string;
+  clinical_summary?: string;
+  structured_findings?: StructuredFindings;
+  processing_warnings?: string[];
   extracted_text?: string;
   is_scanned?: boolean;
   biomarkers: Biomarker[];
@@ -235,6 +337,23 @@ export interface MedicalReport {
     snippets: SearchMatch[];
   };
   created_at: string;
+  upload_timestamp_ist?: string;
+  persisted?: boolean;
+  storage_reference?: string;
+}
+
+export interface ReportIntegrityVerification {
+  report_id: number;
+  patient_id: string;
+  title: string;
+  file_name: string;
+  file_exists: boolean;
+  file_size_bytes?: number;
+  stored_sha256: string | null;
+  recomputed_sha256: string | null;
+  is_tamper_free: boolean;
+  verification_status: string;
+  verified_at: string;
 }
 
 export interface UserVideo {
